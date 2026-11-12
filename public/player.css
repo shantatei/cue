@@ -122,17 +122,10 @@
 @container (max-width: 720px) { .pl-chapter, .pl-vol { display: none; } .pl-row button { min-width: 34px; padding: 0 6px; } .pl-time { margin-left: 4px; } }
 @container (max-width: 460px) { .pl-time, .pl [data-act="pip"] { display: none; } }
 
-/* Broadcast playback uses the browser's accessible media controls and a separate live toolbar. */
-.pl-live { grid-template-rows: minmax(0, 1fr) auto; aspect-ratio: auto; }
-.pl-live video { grid-area: 1 / 1; aspect-ratio: 16 / 9; }
-.live-tools { grid-area: 2 / 1; display: flex; align-items: center; gap: 12px; padding: 9px 12px; background: #151b24; font-size: 12px; }
-.pl .live-tools button { width: auto; height: 30px; padding: 0 8px; border-radius: 6px; }
+/* Live streams share the video player's overlay, menus and icon controls. */
 .pl .live-edge { color: #ff6262; font-weight: 750; white-space: nowrap; }
 .pl .live-edge.behind { color: #b8c1ce; }
-.live-state { color: #b8c1ce; }
-.live-gap { flex: 1; }
-.live-tools label { display: flex; align-items: center; gap: 6px; }
-.live-tools select { background: #222c3a; color: #fff; border: 1px solid #465061; border-radius: 6px; padding: 5px; font: inherit; max-width: 112px; }
-.live-error { grid-area: 1 / 1; z-index: 1; align-self: center; justify-self: center; text-align: center; background: #151b24f5; border-radius: 12px; padding: 24px; max-width: 80%; }
-.pl .live-error button { width: auto; padding: 8px 16px; background: var(--pl-accent); color: #000; border-radius: 8px; }
-@container (max-width: 460px) { .live-state, .live-tools label { font-size: 11px; } .live-tools { gap: 5px; padding: 6px; } .live-tools label { font-size: 0; } }
+.live-state { margin-left: 6px; color: #b8c1ce; font-size: 12px; white-space: nowrap; }
+.pl-live button:disabled { opacity: 0.5; cursor: default; }
+.pl-live .live-error { background: rgb(20 20 20 / 0.94); border-radius: 12px; }
+@container (max-width: 620px) { .live-state { display: none; } }
