@@ -1,0 +1,10 @@
+{
+  "name": "Cue",
+  "direction": "Next Loop",
+  "sourceConcept": "concepts/12-cue-next-loop.png",
+  "wordmark": "The Next Loop symbol serves as the C, followed by ue.",
+  "accent": "#ffb020",
+  "mark": "../public/brand/cue-mark.svg",
+  "logo": "../public/brand/cue-wordmark.svg",
+  "favicon": "../public/favicon.svg"
+}

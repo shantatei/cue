@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" color="#e8edf4">
+  <title>Cue — Next Loop</title>
+  <g id="cue-mark">
+    <path d="M50 47 A24 24 0 1 1 50 17" fill="none" stroke="#ffb020" stroke-width="8" stroke-linecap="round"/>
+    <path d="M47 5 Q48 3 50 6 L60 17 Q62 20 58 20 L43 23 Q40 23 42 20 Z" fill="#ffb020"/>
+    <path d="M26 21 Q23 19 23 23 V41 Q23 45 27 42 L42 34 Q45 32 42 30 Z" fill="currentColor"/>
+  </g>
+</svg>

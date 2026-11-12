@@ -1,0 +1,123 @@
+/* Player chrome. Theme it from outside with --pl-accent, --pl-radius and the inherited font. */
+.pl {
+  --pl-accent: #fff;
+  --pl-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  position: relative;
+  display: grid;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--pl-radius, 0);
+  background: #000;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.pl:fullscreen { aspect-ratio: auto; border-radius: 0; }
+.pl video { grid-area: 1 / 1; width: 100%; height: 100%; min-height: 0; object-fit: contain; }
+.pl audio { display: none; }
+.pl.pl-idle { cursor: none; }
+
+.pl-ui {
+  grid-area: 1 / 1;
+  align-self: end;
+  position: relative;
+  padding: 48px 12px 6px;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.78), rgb(0 0 0 / 0.5) 34%, rgb(0 0 0 / 0.18) 68%, transparent);
+  transition: opacity 180ms var(--pl-ease);
+}
+.pl-idle .pl-ui { opacity: 0; pointer-events: none; }
+
+.pl-row { display: flex; align-items: center; gap: 2px; height: 44px; }
+.pl-gap { flex: 1; }
+.pl button {
+  display: grid; place-items: center;
+  min-width: 40px; height: 40px; padding: 0 9px;
+  border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; cursor: pointer;
+  transition: background-color 120ms ease-out, transform 120ms ease-out;
+}
+.pl button:active { transform: scale(0.96); }
+.pl button:focus-visible, .pl input:focus-visible { outline: 2px solid var(--pl-accent); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .pl-row button:hover, .pl-menu button:hover { background: rgb(255 255 255 / 0.14); } }
+.pl-text { font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
+.pl sup { margin-left: 3px; padding: 1px 3px; border-radius: 3px; background: var(--pl-accent); color: var(--pl-accent-ink, #000); font-size: 9px; font-weight: 700; line-height: 1; vertical-align: 4px; }
+.pl-time { margin-left: 8px; font-size: 13px; white-space: nowrap; }
+.pl-chapter { margin-left: 12px; overflow: hidden; font-size: 13px; opacity: 0.75; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Seek bar: a real range input lies over a drawn track. */
+.pl-seek { --played: 0%; --buffered: 0%; position: relative; height: 16px; display: grid; align-items: center; }
+.pl-track { position: relative; height: 3px; border-radius: 2px; background: rgb(255 255 255 / 0.22); transition: height 120ms ease-out; }
+.pl-seek:hover .pl-track, .pl-seek:focus-within .pl-track { height: 5px; }
+.pl-buf, .pl-fill { position: absolute; inset: 0 auto 0 0; border-radius: inherit; }
+.pl-buf { width: var(--buffered); background: rgb(255 255 255 / 0.32); }
+.pl-fill { width: var(--played); background: var(--pl-accent); }
+.pl-marks i { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #000; }
+.pl-range { position: absolute; inset: 0; width: 100%; margin: 0; opacity: 0; cursor: pointer; appearance: none; -webkit-appearance: none; background: transparent; }
+/* No thumb, so the input maps the pointer across the full width and the hover time matches the click. */
+.pl-range::-webkit-slider-thumb { -webkit-appearance: none; width: 0; height: 0; }
+.pl-range::-moz-range-thumb { width: 0; height: 0; border: 0; }
+.pl-seek::after {
+  content: ""; position: absolute; left: var(--played); width: 13px; height: 13px; margin-left: -6.5px;
+  border-radius: 50%; background: var(--pl-accent); transform: scale(0); transition: transform 120ms ease-out; pointer-events: none;
+}
+.pl-seek:hover::after, .pl-seek:focus-within::after { transform: scale(1); }
+.pl-seek:focus-within .pl-track { outline: 2px solid var(--pl-accent); outline-offset: 3px; }
+.pl-heat { position: absolute; left: 0; bottom: 11px; width: 100%; height: 34px; opacity: 0; transition: opacity 150ms ease-out; pointer-events: none; }
+.pl-heat path { fill: rgb(255 255 255 / 0.3); }
+.pl-seek:hover .pl-heat { opacity: 1; }
+.pl-tip {
+  position: absolute; bottom: 22px; transform: translateX(-50%); padding: 4px 8px; border-radius: 6px;
+  background: rgb(20 20 20 / 0.94); font-size: 12px; font-weight: 600; white-space: nowrap; pointer-events: none;
+}
+
+.pl-vol { width: 68px; height: 16px; margin: 0 4px 0 0; appearance: none; -webkit-appearance: none; background: none; cursor: pointer; }
+.pl-vol::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: linear-gradient(to right, #fff var(--v, 100%), rgb(255 255 255 / 0.25) var(--v, 100%)); }
+.pl-vol::-webkit-slider-thumb { -webkit-appearance: none; width: 11px; height: 11px; margin-top: -4px; border-radius: 50%; background: #fff; }
+.pl-vol::-moz-range-track { height: 3px; border-radius: 2px; background: rgb(255 255 255 / 0.25); }
+.pl-vol::-moz-range-progress { height: 3px; border-radius: 2px; background: #fff; }
+.pl-vol::-moz-range-thumb { width: 11px; height: 11px; border: 0; border-radius: 50%; background: #fff; }
+
+.pl-menu {
+  position: absolute; right: max(8px, var(--anchor, 8px) - 40px); bottom: 54px; min-width: 190px; max-height: min(340px, 70cqh); overflow-y: auto;
+  padding: 6px; border-radius: 12px; background: rgb(24 24 24 / 0.96);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08), 0 12px 32px rgb(0 0 0 / 0.5);
+  transform-origin: bottom right;
+  transition: opacity 140ms var(--pl-ease), transform 140ms var(--pl-ease);
+}
+@starting-style { .pl-menu { opacity: 0; transform: scale(0.96); } }
+.pl-menu button { display: flex; justify-content: space-between; gap: 20px; width: 100%; height: 34px; padding: 0 10px; font-size: 13px; }
+.pl-menu small { opacity: 0.6; font-size: 12px; }
+.pl-menu [aria-checked="true"] { background: rgb(255 255 255 / 0.1); font-weight: 600; }
+.pl [hidden] { display: none !important; }
+
+.pl-big {
+  grid-area: 1 / 1; place-self: center; width: 76px !important; height: 76px !important; border-radius: 50% !important;
+  background: rgb(0 0 0 / 0.55) !important; backdrop-filter: blur(6px);
+  transition: opacity 160ms var(--pl-ease), transform 160ms var(--pl-ease) !important;
+}
+.pl-playing .pl-big { opacity: 0; transform: scale(0.9); pointer-events: none; }
+.pl-busy {
+  grid-area: 1 / 1; place-self: center; width: 44px; height: 44px; border-radius: 50%;
+  border: 3px solid rgb(255 255 255 / 0.25); border-top-color: #fff;
+  opacity: 0; animation: pl-spin 650ms linear infinite; pointer-events: none;
+}
+.pl-busy-on .pl-busy { opacity: 1; transition: opacity 150ms ease-out 250ms; }
+@keyframes pl-spin { to { transform: rotate(360deg); } }
+.pl-error { grid-area: 1 / 1; place-self: center; display: grid; gap: 12px; justify-items: center; padding: 20px; text-align: center; z-index: 1; }
+.pl-error p { margin: 0; max-width: 40ch; }
+.pl-error button { padding: 0 16px; background: #fff; color: #000; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .pl *, .pl { transition-duration: 0ms !important; } .pl-busy { animation-duration: 1.4s; } }
+
+/* Captions */
+.pl { container-type: inline-size; }
+.pl-cc { grid-area: 1 / 1; align-self: end; justify-self: center; max-width: 86%; margin-bottom: 14px; text-align: center; pointer-events: none; transition: margin-bottom 180ms var(--pl-ease); }
+.pl:not(.pl-idle) .pl-cc { margin-bottom: 76px; }
+.pl-cc span { display: inline; padding: 0.12em 0.4em; border-radius: 4px; background: rgb(0 0 0 / var(--cc-bg, 0.7)); color: #fff; font-size: clamp(14px, calc(2.1cqw * var(--cc-scale, 1)), 44px); font-weight: 500; line-height: 1.5; white-space: pre-line; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.pl-note { grid-area: 1 / 1; align-self: start; justify-self: center; margin-top: 14px; padding: 6px 12px; border-radius: 999px; background: rgb(0 0 0 / 0.72); font-size: 13px; font-weight: 600; pointer-events: none; }
+.pl [data-act="captions"][aria-pressed="true"] { box-shadow: inset 0 -2px 0 var(--pl-accent); border-radius: 8px 8px 0 0; }
+
+/* Narrow players: drop the least useful controls so the rest stay reachable. */
+.pl-text { white-space: nowrap; }
+@container (max-width: 720px) { .pl-chapter, .pl-vol { display: none; } .pl-row button { min-width: 34px; padding: 0 6px; } .pl-time { margin-left: 4px; } }
+@container (max-width: 460px) { .pl-time, .pl [data-act="pip"] { display: none; } }

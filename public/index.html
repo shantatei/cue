@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cue</title>
+<meta name="application-name" content="Cue">
+<meta name="theme-color" content="#0d1117">
+<meta name="description" content="Your channels, your queue, your way to watch. A personal video player with organised subscriptions and a smoother feed.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+  /* Critical styles: the page is dark and shows a spinner from the first paint, before any stylesheet or script arrives. */
+  html, body { height: 100%; margin: 0; background: #0d1117; color: #9aa7b8; font: 15px/1.4 system-ui, sans-serif; }
+  .boot { display: grid; place-content: center; justify-items: center; gap: 14px; height: 100vh; margin: 0; }
+  .boot::before { content: ""; width: 34px; height: 34px; border-radius: 50%; border: 3px solid #263041; border-top-color: #ffb020; animation: boot-spin 700ms linear infinite; }
+  @keyframes boot-spin { to { transform: rotate(360deg); } }
+</style>
+<link rel="modulepreload" href="/app/app.js">
+<link rel="modulepreload" href="/app/common.js">
+<link rel="modulepreload" href="/app/extensions.js">
+<link rel="modulepreload" href="/app/pages.js">
+<link rel="modulepreload" href="/app/settings.js">
+<link rel="modulepreload" href="/app/storage.js">
+<link rel="modulepreload" href="/app/util.js">
+<link rel="modulepreload" href="/app/cache.js">
+<link rel="modulepreload" href="/app/extensions/insights.js">
+<link rel="modulepreload" href="/app/extensions/ai-captions.js">
+<link rel="modulepreload" href="/player.js">
+<link rel="modulepreload" href="/icons.js">
+<link rel="stylesheet" href="/player.css">
+<link rel="stylesheet" href="/app/base.css">
+<link rel="stylesheet" href="/app/app.css">
+<div id="app" class="app"><p class="boot">Loading…</p></div>
+<script type="module" src="/app/app.js"></script>
+</html>

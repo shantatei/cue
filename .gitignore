@@ -1,0 +1,18 @@
+# Local accounts, cookies, downloaded media, caches and speech models.
+data/
+cookies*.txt
+.env
+.env.*
+*.pem
+*.key
+
+# Dependencies, generated files and local tooling.
+node_modules/
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store
+tmp/
+coverage/
+.claude/
+.impeccable/
