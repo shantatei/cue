@@ -2,6 +2,7 @@ import { errorMessage } from "./app/errors.js";
 import type { VideoFormat, StreamFormat, VideoInfo, PlaybackPrefs, PlayerOptions, PlayerAPI } from "./app/types.js";
 import { $ as select, targetOf } from "./app/util.js";
 import { icon } from "./icons.js";
+import { mountLivePlayer } from "./app/live-player.js";
 
 const PREFS = "player.prefs"; // { maxQuality, volume, muted, rate }
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" } as Record<string, string>)[c]);
@@ -93,7 +94,9 @@ const tierTag = (f: VideoFormat) => (f.quality >= 2160 ? "4K" : f.quality >= 144
  * Mounts a player for `info` (the /api/info payload) inside `root`.
  * Video and audio arrive as separate streams, so a <video> and an <audio> are kept in sync.
  */
-export function mountPlayer(root: HTMLElement, info: VideoInfo, { autoplay = true, startAt = 0, onTime, onEnded, prefs: given, savePrefs: givenSave, captions: ccOpts }: PlayerOptions = {}): PlayerAPI {
+export function mountPlayer(root: HTMLElement, info: VideoInfo, options: PlayerOptions = {}): PlayerAPI {
+  if (info.live) return mountLivePlayer(root, info, options);
+  const { autoplay = true, startAt = 0, onTime, onEnded, prefs: given, savePrefs: givenSave, captions: ccOpts } = options;
   root.classList.add("pl");
   root.tabIndex = 0;
   root.innerHTML = TEMPLATE;

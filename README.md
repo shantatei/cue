@@ -30,9 +30,15 @@ Without an account, Cue shows a bundled sample dataset. To use your subscription
 - Watched/unwatched filtering using this profile's local history and the recent YouTube history available to the app.
 - Real creator images and thumbnail fallbacks for videos without a high-resolution image.
 - A custom video player, quality selection, captions, chapters, resume points and keyboard controls.
+- Live broadcasts with synchronised audio, adaptive HLS quality, manual quality selection and a Go live control.
+- Collapsible YouTube live chat beside the broadcast, with an external chat link.
 - Shorts from followed channels, local profiles, themes and an extension interface.
 
 Likes, watch-later saves and other local library actions stay in Cue. They do not write back to YouTube. Signing out of Cue removes its saved login; it does not sign you out of youtube.com in your browser.
+
+Live chat uses YouTube's official embed and your browser's YouTube session. Connecting an account in Cue does not sign that iframe in. YouTube may require browser sign-in to post, and subscriber/member restrictions still apply. If the embed is unavailable, use **Open chat**; YouTube does not support embedded chat on mobile web. Upcoming broadcasts become playable once they start; archived streams use the regular video player. Live audio is not sent to the optional AI transcription extension.
+
+Live playback uses [hls.js](https://github.com/video-dev/hls.js) (Apache-2.0); its license is copied into the built `public/vendor/` directory. Browsers without MediaSource use native HLS when available, with automatic quality selection.
 
 ## Local data
 
@@ -69,7 +75,7 @@ Shared video, account, player and extension contracts live in `public/app/types.
 npm test
 ```
 
-`npm test` first builds and type-checks the project, then runs the compiled TypeScript tests with Node's built-in runner and the Python helper tests with `unittest`. They cover feed continuation, deduplication, topic matching, creator images, search filters, thumbnails, recommendation streaming and persistent data paths. They do not need a real account or network access. After an existing build, `npm run test:unit` runs them without rebuilding.
+`npm test` first builds and type-checks the project, then runs the compiled TypeScript tests with Node's built-in runner and the Python helper tests with `unittest`. They cover feed continuation, deduplication, topic matching, creator images, search filters, thumbnails, recommendation streaming, persistent data paths and the live playlist/media proxy. They do not need a real account or external network access. After an existing build, `npm run test:unit` runs them without rebuilding.
 
 ## Project layout
 

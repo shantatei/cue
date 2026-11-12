@@ -46,6 +46,10 @@ the channels they chose ahead of the recommendation feed and never has to sell a
 
 - Playback: `yt-dlp` resolves separate video and audio streams; the server proxies them and the
   page keeps a `<video>` and an `<audio>` element in sync. SDR only, up to 2160p60.
+- Live broadcasts: a local HLS proxy and hls.js provide adaptive playback with audio, manual
+  quality selection and a Go live control. YouTube's official chat embed sits beside the player,
+  can be hidden, and has an external link when embedding is unavailable. Chat uses the browser's
+  YouTube session separately from Cue's copied login. Upcoming streams wait until the broadcast starts.
 - Available without an account: video metadata, formats, chapters, most-replayed heatmap,
   top comments (read only), search, a channel's recent uploads.
 - Not available yet: the owner's real subscriptions, home recommendations, history, playlists,

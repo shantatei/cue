@@ -49,6 +49,7 @@ export interface CaptionOptions {
   onChoose?: (id: string, choice: CaptionChoice | CaptionRequest | undefined) => void;
 }
 export interface PlayerOptions {
+  profile?: string;
   autoplay?: boolean; startAt?: number; prefs?: PlaybackPrefs; savePrefs?: () => void;
   onTime?: (time: number, duration: number) => void; onEnded?: () => void; captions?: CaptionOptions;
 }

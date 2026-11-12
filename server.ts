@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { createAccount, PROFILE_RE } from "./server/account.js";
 import { searchSuggestions, createChannelAvatars } from "./server/discovery.js";
 import { youtubeSearchURL, searchShorts } from "./server/search.js";
+import { liveManifestURL, createLiveProxy } from "./server/live.js";
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC = fileURLToPath(new URL("./public/", import.meta.url));
@@ -26,7 +27,7 @@ const WHISPER = {
 const ID_RE = /^[\w-]{11}$/;
 const TTL = 30 * 60 * 1000; // stream URLs expire after a few hours
 const TYPES: Record<string, string> = {
-  ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+  ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8", ".json": "application/json", ".svg": "image/svg+xml",
   ".map": "application/json; charset=utf-8",
   ".png": "image/png", ".webp": "image/webp", ".jpg": "image/jpeg", ".woff2": "font/woff2",
@@ -179,7 +180,7 @@ async function youtubeCaptions(id: string, cid: string) {
 }
 
 const NEEDS_LOGIN = /sign in to confirm your age|age-restricted|members-only|join this channel|private video|this video is private|sign in to confirm you/i;
-function getInfo(id: string, profile?: string | null): Promise<{ urls: Record<string, { url: string; at: number }>; pub: VideoInfo; captionUrls: Record<string, string> }> {
+function getInfo(id: string, profile?: string | null): Promise<{ urls: Record<string, { url: string; at: number }>; pub: VideoInfo; captionUrls: Record<string, string>; liveManifest?: string }> {
   return cached(`info:${id}`, TTL, async () => {
     const args = ["-J", "--no-playlist", `https://www.youtube.com/watch?v=${id}`];
     let raw;
@@ -192,12 +193,17 @@ function getInfo(id: string, profile?: string | null): Promise<{ urls: Record<st
     const j = parseYtJSON(raw);
     const { urls, ...formats } = pickFormats(j);
     const captions = captionList(j);
-    if (!formats.video.length && !formats.muxed.length) {
-      throw new Error(j.is_live ? "Live streams aren't supported yet" : "No playable formats found");
+    const live = !!j.is_live || j.live_status === "is_live";
+    const liveManifest = live ? liveManifestURL(j.formats ?? []) : undefined;
+    if (j.live_status === "is_upcoming") throw new Error("This live stream hasn't started yet. Try again when the broadcast begins.");
+    if (!liveManifest && !formats.video.length && !formats.muxed.length) {
+      throw new Error(live ? "YouTube didn't provide a playable live stream. Try again." : "No playable formats found");
     }
     return {
       urls,
+      liveManifest,
       pub: {
+        live: live && !!liveManifest,
         id, title: j.title ?? "", description: j.description, duration: j.duration ?? 0,
         channel: j.channel ?? "", channelId: j.channel_id, handle: j.uploader_id,
         verified: !!j.channel_is_verified, subscribers: j.channel_follower_count,
@@ -211,6 +217,13 @@ function getInfo(id: string, profile?: string | null): Promise<{ urls: Record<st
     };
   });
 }
+
+const liveProxy = createLiveProxy({ manifest: async (video, profile, refresh) => {
+  if (refresh) cache.delete(`info:${video}`);
+  const info = await getInfo(video, PROFILE_RE.test(profile) ? profile : null);
+  if (!info.liveManifest) throw Object.assign(new Error("This broadcast has ended or is no longer live."), { status: 409 });
+  return info.liveManifest;
+} });
 
 const flatEntry = (e: YtEntry): Video => ({
   id: e.id, title: e.title, duration: e.duration, views: e.view_count,
@@ -418,6 +431,19 @@ http.createServer(async (req, res) => {
         if (!ID_RE.test(id)) return json(res, 400, { error: "bad video id" });
         const p = u.searchParams.get("p");
         return json(res, 200, (await getInfo(id, PROFILE_RE.test(p ?? "") ? p : null)).pub);
+      }
+      case "/api/live": {
+        if (!sameOrigin(req)) return json(res, 403, { error: "Live media only answers to this app." });
+        if (req.method !== "GET") return json(res, 405, { error: "GET only" });
+        if (!ID_RE.test(id)) return json(res, 400, { error: "bad video id" });
+        const profile = u.searchParams.get("p") ?? "";
+        if (profile && !PROFILE_RE.test(profile)) return json(res, 400, { error: "bad profile" });
+        try { return await liveProxy(req, res, id, profile, u.searchParams.get("r")); }
+        catch (error) {
+          if (isAbortError(error) || res.destroyed) return;
+          if (res.headersSent) res.destroy(); else json(res, errorStatus(error) ?? 502, { error: errorMessage(error) });
+          return;
+        }
       }
       case "/api/channel": {
         const cid = u.searchParams.get("id") ?? "";

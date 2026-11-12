@@ -18,5 +18,8 @@
   },
   "engines": {
     "node": ">=24"
+  },
+  "dependencies": {
+    "hls.js": "^1.7.4"
   }
 }

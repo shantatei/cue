@@ -5,6 +5,7 @@ import type { AppData, AccountRaw, AccountStatus, Fixture, Video, VideoInfo, Vid
 // the home composition and all styling.
 import { icon } from "../icons.js";
 import { mountPlayer } from "../player.js";
+import { mountLiveChat } from "./live-chat.js";
 import { esc, compact, $, $$, fmtTime, ago, dayLabel, toast, copyText, targetOf } from "./util.js";
 import { store, is, profiles } from "./storage.js";
 import { cache } from "./cache.js";
@@ -414,7 +415,7 @@ export async function renderWatch(main: PageElement, id: string, data: AppData) 
   if (stale()) return;
 
   const chan = data.channels.get(info.channelId ?? "") ?? null;
-  const chip = { id, title: info.title, channel: info.channel, duration: info.duration, timestamp: info.timestamp, views: info.views };
+  const chip = { id, title: info.title, channel: info.channel, duration: info.duration, timestamp: info.timestamp, views: info.views, live: info.live };
   const side = data.videos.filter((v) => v.id !== id).sort((a, b) => Number(b.channelId === info.channelId) - Number(a.channelId === info.channelId) || Number(b.group === known?.group) - Number(a.group === known?.group) || (b.timestamp ?? 0) - (a.timestamp ?? 0)).slice(0, 10);
   let player: PlayerAPI | null = null;
   const ctx = { info, data, get player() { return player; } };
@@ -423,7 +424,7 @@ export async function renderWatch(main: PageElement, id: string, data: AppData) 
   const likes = lib.has("liked", id);
   const shape = info.video.find((f) => f.width && f.height) ?? info.muxed.find((f) => f.width && f.height);
   const portrait = !!shape && shape.height > shape.width;
-  main.innerHTML = `<section class="watch ${portrait ? "portrait" : ""}"><div class="w-main">
+  main.innerHTML = `<section class="watch ${portrait ? "portrait" : ""} ${info.live ? "is-live" : ""}"><div class="w-main">
     <div class="w-player"></div>
     <h1 class="w-title">${esc(info.title)}</h1>
     <div class="w-bar"><div class="w-chan"><a href="${chan ? `#/channel/${chan.id}` : `#/search/${encodeURIComponent(info.channel)}`}">${avatar(chan, info.channel, "av-l")}</a>
@@ -433,20 +434,20 @@ export async function renderWatch(main: PageElement, id: string, data: AppData) 
         <button class="btn" data-share>${icon("share", 18)} Share</button>
         <button class="btn ${lib.has("later", id) ? "on" : ""}" data-later>${icon("clock", 18)} <span>${lib.has("later", id) ? "Saved" : "Watch later"}</span></button>
         <a class="btn" href="/stream?v=${id}&f=18" download="${esc(info.title)}.mp4" ${info.muxed.some((f) => f.id === "18") ? "" : "hidden"}>${icon("download", 18)} Download</a></div></div>
-    <section class="w-desc"><p class="w-stats"><b>${compact(info.views)} views</b> <b>${ago(info.timestamp)}</b></p><div class="w-text clamp">${linkify(info.description || "No description.")}</div><button class="more" data-more>Show more</button></section>
+    <section class="w-desc"><p class="w-stats">${info.live ? `<b class="live-label">● LIVE NOW</b>` : `<b>${compact(info.views)} views</b> <b>${ago(info.timestamp)}</b>`}</p><div class="w-text clamp">${linkify(info.description || "No description.")}</div><button class="more" data-more>Show more</button></section>
     ${info.chapters.length ? `<section class="w-chap"><h2>Chapters</h2><ol>${info.chapters.map((c) => `<li><button class="ts" data-t="${c.start_time}"><span>${fmtTime(c.start_time)}</span>${esc(c.title)}</button></li>`).join("")}</ol></section>` : ""}
     ${panels.map((p) => `<div class="w-ext" data-ext="${p.id}">${p.html}</div>`).join("")}
-    <section class="w-comments"><h2>${compact(info.comments)} comments</h2><div class="cm-list" aria-busy="true">${Array.from({ length: 3 }, () => `<div class="cm"><span class="av sk"></span><div><span class="sk sk-l"></span><span class="sk sk-s"></span></div></div>`).join("")}</div></section>
-  </div><aside class="w-side"><h2>From your subscriptions</h2>${side.map((v) => card(v)).join("")}</aside></section>`;
+    ${info.live ? "" : `<section class="w-comments"><h2>${compact(info.comments)} comments</h2><div class="cm-list" aria-busy="true">${Array.from({ length: 3 }, () => `<div class="cm"><span class="av sk"></span><div><span class="sk sk-l"></span><span class="sk sk-s"></span></div></div>`).join("")}</div></section>`}
+  </div><aside class="w-side">${info.live ? `<section data-live-chat></section>` : ""}<h2>From your subscriptions</h2>${side.map((v) => card(v)).join("")}</aside></section>`;
 
   const watch = $(".watch", main), box = $(".w-player", main);
   const resumeKey = `resume.${id}`;
   const at = Number(store.raw.get(resumeKey)) || 0;
   const { prefs, save } = playerPrefs();
-  const captions = captionOptions(info, await extensions.captionRequests(ctx));
+  const captions = info.live ? undefined : captionOptions(info, await extensions.captionRequests(ctx));
   if (stale()) return;
   player = mountPlayer(box, info, {
-    prefs, savePrefs: save, autoplay: prefs.autoplay, captions,
+    profile: profiles.current().id, prefs, savePrefs: save, autoplay: prefs.autoplay, captions,
     startAt: prefs.resume && at > 5 && at < info.duration - 15 ? at : 0,
     onTime: (t) => store.raw.set(resumeKey, Math.floor(t)), onEnded: () => store.raw.remove(resumeKey),
   });
@@ -458,6 +459,7 @@ export async function renderWatch(main: PageElement, id: string, data: AppData) 
   const onKey = (e: KeyboardEvent) => player?.key(e);
   document.addEventListener("keydown", onKey, { signal: off.signal });
   off.signal.addEventListener("abort", () => { player?.destroy(); setCurrentPlayer(null); });
+  if (info.live) mountLiveChat($("[data-live-chat]", main), id, off.signal);
   box.addEventListener("player:theatre", () => watch.classList.toggle("theatre"));
 
   watch.addEventListener("click", (e) => {
@@ -470,10 +472,13 @@ export async function renderWatch(main: PageElement, id: string, data: AppData) 
     if (targetOf(e).closest<HTMLElement>("[data-share]")) return copyText(`https://youtu.be/${id}`, "Link copied.");
   }, { signal: off.signal });
 
+  if (info.live) return;
   const list = $(".cm-list", main);
-  new IntersectionObserver(async ([en], io) => {
+  const commentObserver = new IntersectionObserver(async ([en], io) => {
     if (!en.isIntersecting) return; io.disconnect();
     try { const r = await fetch(`/api/comments?v=${id}`); const j = await r.json(); if (!stale()) { list.innerHTML = r.ok ? commentsHtml(j) : `<p class="muted">${esc(j.error)}</p>`; list.removeAttribute("aria-busy"); } }
     catch { if (!stale()) list.innerHTML = `<p class="muted">Comments didn’t load.</p>`; }
-  }, { rootMargin: "300px" }).observe(list);
+  }, { rootMargin: "300px" });
+  commentObserver.observe(list);
+  off.signal.addEventListener("abort", () => commentObserver.disconnect(), { once: true });
 }

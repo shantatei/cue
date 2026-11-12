@@ -31,7 +31,7 @@ export default {
         info.likes != null && info.views ? ["Likes per view", `${((info.likes / info.views) * 100).toFixed(1)}%`] : null,
         info.comments != null && info.views ? ["Comments per 1K views", ((info.comments / info.views) * 1000).toFixed(1)] : null,
         subs && info.views != null ? ["Views vs. subscribers", `${(info.views / subs).toFixed(2)}×`] : null,
-        ["Length", fmtTime(info.duration)], info.categories[0] ? ["Category", esc(info.categories[0])] : null,
+        ["Length", info.live ? "Live now" : fmtTime(info.duration)], info.categories[0] ? ["Category", esc(info.categories[0])] : null,
         info.timestamp ? ["Published", new Date(info.timestamp * 1000).toLocaleDateString("en", { year: "numeric", month: "short", day: "numeric" })] : null,
         peak ? ["Most replayed", `<button class="ts" data-t="${Math.round((peak.start_time + peak.end_time) / 2)}">${fmtTime((peak.start_time + peak.end_time) / 2)}</button>`] : null,
       ].filter((row): row is [string, string] => Array.isArray(row));

@@ -88,6 +88,17 @@
 .card .thumb { transition: box-shadow 140ms ease-out; } @media (hover: hover) { .card:hover .thumb { box-shadow: 0 0 0 2px var(--accent); } }
 .card .ct { font-size: 14px; }
 .watch { --side: 380px; }
+.live-label { color: #ff6262; }
+.live-chat { border: 1px solid var(--line, #29313d); border-radius: 14px; overflow: hidden; margin-bottom: 12px; background: var(--bg); }
+.live-chat header { display: flex; align-items: center; gap: 10px; padding: 14px; border-bottom: 1px solid var(--line, #29313d); }
+.live-chat header h2 { margin: 0; flex: 1; white-space: nowrap; }
+.live-chat header a, .live-chat header button { font: inherit; font-size: 12px; color: inherit; white-space: nowrap; }
+.live-chat header button { border: 0; border-radius: 6px; padding: 6px; background: var(--chip, #202936); cursor: pointer; }
+.live-chat-body iframe { width: 100%; height: clamp(380px, 60vh, 650px); display: block; border: 0; }
+.live-chat-hint { margin: 0; padding: 12px 14px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.live-chat [hidden] { display: none; }
+.watch.is-live.theatre .w-side { display: grid; }
+.watch.is-live.theatre .live-chat { max-width: 650px; }
 .watch.theatre .w-player { margin-inline: calc(var(--pad) * -1); border-radius: 0; --pl-radius: 0; }
 
 /* Light theme */
