@@ -2,5 +2,21 @@
   "name": "cue",
   "private": true,
   "type": "module",
-  "scripts": { "start": "node server.js", "test": "node --test tests/*.test.js && python3 -m unittest discover -s tests -p '*_test.py'" }
+  "scripts": {
+    "start": "npm run build && node --enable-source-maps dist/server.js",
+    "dev": "tsx scripts/dev.ts",
+    "build": "tsx scripts/build.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && npm run test:unit",
+    "test:unit": "node --enable-source-maps --test dist/tests/*.test.js && python3 -m unittest discover -s tests -p '*_test.py'",
+    "fixtures": "tsx scripts/build-fixture.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=24"
+  }
 }

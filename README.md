@@ -6,14 +6,17 @@ A personal, locally hosted video front end built around a better YouTube experie
 
 ## Run locally
 
-Tested on macOS with Node.js 24, Python 3, `yt-dlp` and FFmpeg. The application has no npm dependencies. Account connection and recommendation streaming use the Python environment bundled with `yt-dlp`; the current setup supports a Homebrew installation.
+Tested on macOS with Node.js 24, Python 3, `yt-dlp` and FFmpeg. The frontend, Node server, developer scripts and Node tests are written in TypeScript. The browser still uses native ES modules, with no UI framework. Account connection and recommendation streaming use the Python environment bundled with `yt-dlp`; the current setup supports a Homebrew installation.
 
 ```sh
 brew install node yt-dlp ffmpeg
+npm ci
 npm start
 ```
 
 Open **http://localhost:3000**. The server binds to `127.0.0.1`. Use `PORT=3001 npm start` to choose another local port.
+
+`npm start` builds TypeScript and copies static assets into `dist/` before launching the server. Generated JavaScript and source maps are ignored by Git; edit the `.ts` source files. Rebuilding does not remove `data/` or change browser storage, so existing profiles and saved accounts are retained.
 
 Without an account, Cue shows a bundled sample dataset. To use your subscriptions and recommendations, sign in to YouTube in your browser, then open **Settings → YouTube account** in Cue and connect that browser. macOS may request browser or Keychain access.
 
@@ -41,25 +44,46 @@ The repository does **not** include login cookies, account caches, browser profi
 
 The AI captions extension is off by default. It uses a locally installed `whisper-cli` and model files under `data/models/`. Transcription expects `ggml-large-v3-turbo-q5_0.bin`; translation expects `ggml-large-v3-q5_0.bin`. Without these optional components, the extension reports that local transcription is unavailable. Uploaded and available YouTube captions do not require these models.
 
+## Development and debugging
+
+```sh
+npm run dev        # Compile on edits, restart the server, copy changed static assets
+npm run typecheck  # Strict TypeScript checking without generating files
+npm run build      # Produce dist/ for a normal server run
+```
+
+Refresh the browser after frontend changes. Compiler errors appear in the terminal. Browser source maps embed the TypeScript source, and Node starts with `--enable-source-maps`, so stack traces point to the original `.ts` files rather than generated JavaScript.
+
+For a Node inspector session on a separate port:
+
+```sh
+npm run build
+PORT=3001 node --inspect --enable-source-maps dist/server.js
+```
+
+Shared video, account, player and extension contracts live in `public/app/types.ts`. Search filters have their own types in `public/app/search-filters.ts`, and `server/yt-types.ts` describes the external yt-dlp metadata boundary.
+
 ## Tests
 
 ```sh
 npm test
 ```
 
-Tests use Node's built-in test runner and Python's standard-library `unittest`. They cover feed continuation, deduplication, topic matching, creator images, search filters, thumbnails and the recommendation worker. They do not need a real account or network access.
+`npm test` first builds and type-checks the project, then runs the compiled TypeScript tests with Node's built-in runner and the Python helper tests with `unittest`. They cover feed continuation, deduplication, topic matching, creator images, search filters, thumbnails, recommendation streaming and persistent data paths. They do not need a real account or network access. After an existing build, `npm run test:unit` runs them without rebuilding.
 
 ## Project layout
 
 | Path | Purpose |
 | --- | --- |
-| `server.js` | Local HTTP server, playback resolution, media and image proxying |
+| `server.ts` | Local HTTP server, playback resolution, media and image proxying |
 | `server/` | Account management, recommendations, discovery and search helpers |
 | `public/app/` | Application interface, storage, search, feeds and extensions |
-| `public/player.js` | Custom player |
+| `public/player.ts` | Custom player |
 | `public/brand/` | Cue Next Loop mark and integrated wordmark |
 | `scripts/` | Browser-cookie export, recommendation worker and sample-data builder |
 | `tests/` | Offline regression tests |
+| `tsconfig.json` | Strict compiler settings and source-map configuration |
+| `dist/` | Generated server/browser JavaScript and static assets; not committed |
 | `branding/concepts/` | Original logo explorations and their generation prompts |
 
 ## Known limits

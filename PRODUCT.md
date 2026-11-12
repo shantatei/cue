@@ -11,9 +11,10 @@ web
 
 ## Stack
 
-Delegated (not yet asked): a dependency-free Node server (`server.js`) that resolves
-streams with `yt-dlp` and proxies them, plus static HTML/CSS/JS in `public/`.
-A framework has not been chosen.
+A Node server (`server.ts`) that resolves streams with `yt-dlp` and proxies them,
+plus native HTML/CSS/TypeScript browser modules in `public/`. There is no frontend
+framework. A strict TypeScript build emits JavaScript and source maps into `dist/`;
+Python helpers handle browser-cookie export and recommendation iteration.
 
 ## Users
 
