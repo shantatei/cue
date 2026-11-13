@@ -426,6 +426,12 @@ http.createServer(async (req, res) => {
   const u = new URL(req.url ?? "/", `http://${req.headers.host}`);
   const id = u.searchParams.get("v") ?? "";
   try {
+  // Every request must name this server as its Host (stops DNS-rebinding pages from talking to it), and
+  // anything that isn't a plain page load must come from this app's own pages (stops other sites from
+  // triggering downloads, transcription jobs or cache deletion in the background).
+  if (!HOSTS.has(req.headers.host ?? "")) return json(res, 403, { error: "Unrecognised host." });
+  const pathname = req.url?.split("?")[0] ?? "/";
+  if ((req.method !== "GET" || pathname.startsWith("/api/") || pathname === "/stream") && !sameOrigin(req)) return json(res, 403, { error: "This server only answers to its own pages." });
     switch (u.pathname) {
       case "/api/info": {
         if (!ID_RE.test(id)) return json(res, 400, { error: "bad video id" });
