@@ -4,6 +4,7 @@ import * as C from "./common.js";
 import { buildTopics, matchesTopic } from "./topics.js";
 import { createHomeFeed } from "./home-feed.js";
 import { mountSearch } from "./search.js";
+import { cueRouteForLink } from "./youtube-links.js";
 import { extensions } from "./extensions.js";
 import { profiles, store, is } from "./storage.js";
 import { renderSettings, renderExtensions, accountMenu } from "./pages.js";
@@ -84,7 +85,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 $("[data-mini]").onclick = () => app.classList.toggle("mini");
-mountSearch($(".search"), { icon, onSearch: (query) => { location.hash = `#/search/${encodeURIComponent(query)}`; } });
+mountSearch($(".search"), { icon, onSearch: (query) => { location.hash = cueRouteForLink(query) ?? `#/search/${encodeURIComponent(query)}`; } });
 $("[data-create]").onclick = (e) => C.popover((e.currentTarget as HTMLElement), C.createHtml());
 $("[data-bell]").onclick = (e) => { (e.currentTarget as HTMLElement).querySelector(".dot")?.remove(); C.popover((e.currentTarget as HTMLElement), C.bellHtml(data)); };
 const drawAvatar = () => { const me = $("[data-me]"), p = profiles.current(); me.style.background = p.color; me.textContent = initial(p.name); };
