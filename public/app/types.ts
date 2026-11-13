@@ -32,7 +32,7 @@ export interface VideoInfo extends Omit<Video, "title" | "channel" | "duration" 
   tags: string[]; categories: string[]; chapters: Chapter[]; heatmap: HeatmapPoint[];
   language?: string | null; captions: CaptionTrack[];
 }
-export interface VideoComment { id: string; author: string; avatar?: string | null; text: string; likes: number; timestamp?: number | null; byUploader?: boolean; pinned?: boolean; hearted?: boolean }
+export interface VideoComment { id: string; author: string; avatar?: string | null; text: string; likes: number; timestamp?: number | null; byUploader?: boolean; pinned?: boolean; hearted?: boolean; replies?: VideoComment[] }
 export interface RecommendationPage { videos: Video[]; nextCursor: string | null }
 export interface WorkerPage { videos: Video[]; hasMore: boolean }
 export interface PlaybackPrefs { autoplay: boolean; maxQuality: number; rate: number; volume: number; muted: boolean; resume: boolean }

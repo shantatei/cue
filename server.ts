@@ -1,8 +1,8 @@
 import { errorMessage, isAbortError, errorStatus } from "./public/app/errors.js";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { VideoInfo, Video, CaptionTrack, AIStatus } from "./public/app/types.js";
+import type { VideoInfo, Video, VideoComment, CaptionTrack, AIStatus } from "./public/app/types.js";
 import { parseYtJSON } from "./server/yt-types.js";
-import type { YtResult, YtEntry, RawFormat } from "./server/yt-types.js";
+import type { YtResult, YtEntry, RawFormat, RawComment } from "./server/yt-types.js";
 import http from "node:http";
 import { execFile } from "node:child_process";
 import { spawn } from "node:child_process";
@@ -246,13 +246,16 @@ function comments(id: string) {
   return cached(`comments:${id}`, TTL, async () => {
     const j = parseYtJSON(await ytdlp([
       "-J", "--no-playlist", "--skip-download", "--write-comments",
-      "--extractor-args", "youtube:max_comments=30,30,0,0;comment_sort=top",
+      "--extractor-args", "youtube:max_comments=30,30,90,5;comment_sort=top",
       `https://www.youtube.com/watch?v=${id}`,
     ]));
-    return (j.comments ?? []).map((c) => ({
-      author: c.author, avatar: c.author_thumbnail, text: c.text, likes: c.like_count ?? 0,
+    // yt-dlp returns replies in the same list, each pointing at its parent ("root" marks a top-level comment).
+    const shape = (c: RawComment): VideoComment => ({
+      id: c.id, author: c.author, avatar: c.author_thumbnail, text: c.text, likes: c.like_count ?? 0,
       timestamp: c.timestamp, pinned: !!c.is_pinned, hearted: !!c.is_favorited, byUploader: !!c.author_is_uploader,
-    }));
+    });
+    const all = j.comments ?? [], replies = Map.groupBy(all.filter((c) => c.parent && c.parent !== "root"), (c) => c.parent ?? "");
+    return all.filter((c) => !c.parent || c.parent === "root").map((c) => ({ ...shape(c), replies: (replies.get(c.id) ?? []).map(shape) }));
   });
 }
 
@@ -423,15 +426,15 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: 
 }
 
 http.createServer(async (req, res) => {
-  const u = new URL(req.url ?? "/", `http://${req.headers.host}`);
-  const id = u.searchParams.get("v") ?? "";
-  try {
   // Every request must name this server as its Host (stops DNS-rebinding pages from talking to it), and
   // anything that isn't a plain page load must come from this app's own pages (stops other sites from
   // triggering downloads, transcription jobs or cache deletion in the background).
   if (!HOSTS.has(req.headers.host ?? "")) return json(res, 403, { error: "Unrecognised host." });
   const pathname = req.url?.split("?")[0] ?? "/";
   if ((req.method !== "GET" || pathname.startsWith("/api/") || pathname === "/stream") && !sameOrigin(req)) return json(res, 403, { error: "This server only answers to its own pages." });
+  const u = new URL(req.url ?? "/", `http://${req.headers.host}`);
+  const id = u.searchParams.get("v") ?? "";
+  try {
     switch (u.pathname) {
       case "/api/info": {
         if (!ID_RE.test(id)) return json(res, 400, { error: "bad video id" });

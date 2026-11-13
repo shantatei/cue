@@ -6,6 +6,7 @@ import type { AppData, AccountRaw, AccountStatus, Fixture, Video, VideoInfo, Vid
 import { icon } from "../icons.js";
 import { mountPlayer } from "../player.js";
 import { mountLiveChat } from "./live-chat.js";
+import { mountReels } from "./reels.js";
 import { esc, compact, $, $$, fmtTime, ago, dayLabel, toast, copyText, targetOf } from "./util.js";
 import { store, is, profiles } from "./storage.js";
 import { cache } from "./cache.js";
@@ -259,28 +260,36 @@ export async function renderChannel(main: PageElement, id: string, data: AppData
   sub.onclick = () => { const on = sub.classList.toggle("on"); sub.textContent = on ? "Subscribed" : "Subscribe"; toast(on ? "Subscribed here only. Syncing to YouTube needs sign-in." : "Unsubscribed here only."); };
 }
 
-export const shortTile = (s: Video) => `<a class="short" href="#/watch/${s.id}"><span class="thumb">${thumb(s.id, "hq720", s.thumbnail)}</span><span class="ct">${esc(s.title)}</span><span class="cs">${[s.channel, s.views != null ? `${compact(s.views)} views` : ""].filter(Boolean).map(esc).join(" · ")}</span></a>`;
-export async function renderShorts(main: PageElement, data: AppData) {
+export const shortTile = (s: Video) => `<a class="short" href="#/shorts/${s.id}"><span class="thumb">${thumb(s.id, "hq720", s.thumbnail)}</span><span class="ct">${esc(s.title)}</span><span class="cs">${[s.channel, s.views != null ? `${compact(s.views)} views` : ""].filter(Boolean).map(esc).join(" · ")}</span></a>`;
+export async function renderShorts(main: PageElement, data: AppData, startId = "") {
+  const pid = profiles.current().id;
+  const deps = {
+    profile: pid,
+    isSaved: (name: "liked" | "later", id: string) => lib.has(name, id),
+    toggleSaved: (name: "liked" | "later", v: Video) => lib.toggle(name, v),
+    commentsHtml,
+    openChannel: (v: Video) => (v.channelId ? `#/channel/${v.channelId}` : `#/search/${encodeURIComponent(v.channel ?? "")}`),
+  };
   if (data.live) {
     // Signed in: Shorts from the channels you follow. The last list this device saw is drawn first.
-    const pid = profiles.current().id, key = `shorts:${pid}`;
+    const key = `shorts:${pid}`;
     main.dataset.shorts = pid;
-    const page = (inner: string) => `<section class="page"><h1 class="ph">Shorts</h1><p class="lede">From channels you subscribe to that posted recently.</p>${inner}</section>`;
-    const paint = (list: Video[]) => page(list.length ? `<div class="shorts">${list.map(shortTile).join("")}</div>` : empty("No Shorts found", "None of the channels you follow have posted Shorts lately."));
+    const message = (inner: string) => `<section class="page"><h1 class="ph">Shorts</h1><p class="lede">From channels you subscribe to that posted recently.</p>${inner}</section>`;
     const saved = await cache.get<{ at: number; items: Video[] }>(key);
     if (main.dataset.shorts !== pid) return;
-    main.innerHTML = saved?.items ? paint(saved.items)
-      : page(`<div class="shorts" aria-busy="true">${Array.from({ length: 12 }, () => `<div class="short"><span class="thumb sk"></span><span class="sk sk-l"></span></div>`).join("")}</div>`);
+    if (saved?.items.length) mountReels(main, saved.items, startId, deps);
+    else main.innerHTML = message(`<div class="shorts" aria-busy="true">${Array.from({ length: 12 }, () => `<div class="short"><span class="thumb sk"></span><span class="sk sk-l"></span></div>`).join("")}</div>`);
     try {
-      const r = await fetch(`/api/account/shorts?p=${encodeURIComponent(pid)}`), list = await r.json();
-      if (!r.ok) throw new Error(list.error);
+      const r = await fetch(`/api/account/shorts?p=${encodeURIComponent(pid)}`), list: Video[] = await r.json();
+      if (!r.ok) throw new Error((list as unknown as { error?: string }).error);
       if (main.dataset.shorts !== pid) return;
       cache.set(key, { at: Date.now(), items: list });
-      if (JSON.stringify(list) !== JSON.stringify(saved?.items)) main.innerHTML = paint(list);
-    } catch (e) { if (main.dataset.shorts === pid && !saved) main.innerHTML = page(empty("Couldn't load Shorts", esc(errorMessage(e)))); }
+      // A feed someone is already watching is not swapped out from under them; the next visit uses the fresh list.
+      if (!saved?.items.length) list.length ? mountReels(main, list, startId, deps) : (main.innerHTML = message(empty("No Shorts found", "None of the channels you follow have posted Shorts lately.")));
+    } catch (e) { if (main.dataset.shorts === pid && !saved?.items.length) main.innerHTML = message(empty("Couldn't load Shorts", esc(errorMessage(e)))); }
     return;
   }
-  main.innerHTML = `<section class="page"><h1 class="ph">Shorts</h1><div class="shorts">${data.shorts.map(shortTile).join("")}</div></section>`;
+  mountReels(main, data.shorts, startId, deps);
 }
 
 const LIBS: Record<string, [string, string]> = {
@@ -344,10 +353,15 @@ const linkify = (text: string) => esc(text)
   .replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noreferrer noopener">${u.length > 48 ? `${u.slice(0, 46)}…` : u}</a>`)
   .replace(/(^|\s)((?:\d{1,2}:)?\d{1,2}:\d{2})(?=\s|$)/g, (_, pre: string, t: string) => `${pre}<button class="ts" data-t="${t.split(":").reduce((a, n) => a * 60 + +n, 0)}">${t}</button>`);
 
+function commentHtml(c: VideoComment, small = false): string {
+  const replies = c.replies ?? [];
+  const faces = [...new Map(replies.map((r) => [r.author, r])).values()].slice(0, 3);
+  return `<article class="cm ${small ? "cm-reply" : ""}">${avatar({ avatar: c.avatar }, c.author)}<div><header><b>${esc(c.author)}</b>${c.byUploader ? `<span class="badge">Creator</span>` : ""}${c.pinned ? `<span class="badge">${icon("pin", 12)} Pinned</span>` : ""}<small>${ago(c.timestamp)}</small></header>
+    <p>${esc(c.text)}</p><footer>${icon("like", 15)} ${compact(c.likes)}${c.hearted ? ` <span class="heart" title="Liked by creator">♥</span>` : ""}</footer>
+    ${replies.length ? `<details class="cm-replies"><summary><span class="faces">${faces.map((r) => avatar({ avatar: r.avatar }, r.author)).join("")}</span><span>${replies.length} ${replies.length === 1 ? "reply" : "replies"}</span>${icon("down", 16)}</summary><div class="cm-thread">${replies.map((r) => commentHtml(r, true)).join("")}</div></details>` : ""}</div></article>`;
+}
 function commentsHtml(list: VideoComment[]) {
-  if (!list.length) return `<p class="muted">No comments to show.</p>`;
-  return list.map((c) => `<article class="cm">${avatar({ avatar: c.avatar }, c.author)}<div><header><b>${esc(c.author)}</b>${c.byUploader ? `<span class="badge">Creator</span>` : ""}${c.pinned ? `<span class="badge">${icon("pin", 12)} Pinned</span>` : ""}<small>${ago(c.timestamp)}</small></header>
-    <p>${esc(c.text)}</p><footer>${icon("like", 15)} ${compact(c.likes)}${c.hearted ? ` <span class="heart" title="Liked by creator">♥</span>` : ""}</footer></div></article>`).join("");
+  return list.length ? list.map((c) => commentHtml(c)).join("") : `<p class="muted">No comments to show.</p>`;
 }
 
 /**

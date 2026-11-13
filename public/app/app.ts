@@ -181,7 +181,7 @@ C.startRouter(route = ({ page, arg } = C.parseRoute()) => {
   const [p, a] = page === "you" ? ["lib", arg] : [page, arg];
   $$(".navi", app).forEach((n) => n.classList.toggle("on", n.dataset.nav === (p === "lib" ? `you:${a}` : p)));
   main.scrollTop = 0;
-  ({ "": home, subs: subsFeed, shorts: () => C.renderShorts(main, data), manage: () => C.renderManage(main, data), watch: () => C.renderWatch(main, a, data),
+  ({ "": home, subs: subsFeed, shorts: () => C.renderShorts(main, data, a), manage: () => C.renderManage(main, data), watch: () => C.renderWatch(main, a, data),
     search: () => C.renderSearch(main, a, data), channel: () => C.renderChannel(main, a, data), lib: () => C.renderLib(main, a, data),
     settings: () => renderSettings(main), extensions: () => { main._cleanup = renderExtensions(main); } }[p] ?? home)();
 });

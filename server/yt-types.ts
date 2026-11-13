@@ -9,7 +9,7 @@ export interface RawFormat {
 export interface RawCaption { url: string; ext: string; name?: string }
 export interface RawComment {
   id: string; author: string; author_thumbnail?: string; text: string; like_count?: number;
-  timestamp?: number; author_is_uploader?: boolean; is_pinned?: boolean; is_favorited?: boolean;
+  timestamp?: number; author_is_uploader?: boolean; is_pinned?: boolean; is_favorited?: boolean; parent?: string;
 }
 export interface YtEntry {
   id: string; title?: string; description?: string; channel?: string; uploader?: string; channel_id?: string;
