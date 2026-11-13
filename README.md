@@ -4,8 +4,11 @@
 
 Cue is a locally hosted YouTube companion for browsing subscriptions, discovering videos and watching live broadcasts. It brings organised channel navigation, continuous recommendations and a consistent player interface into one personal workspace.
 
+> **Personal use only.** Cue is an independent hobby project. It is not affiliated with, endorsed by or sponsored by YouTube or Google, and it is intended for personal use on your own machine.
+
 ## Features
 
+- **Ad-free playback:** Watch videos and Shorts in Cue's own player, without ads, at up to 4K.
 - **Organised subscriptions:** Search channels, pin favourites and collapse groups within a bounded sidebar.
 - **Continuous discovery:** Browse signed-in recommendations with automatic pagination, duplicate removal and topic filters based on video metadata.
 - **Search and filtering:** Get search suggestions as you type, with keyboard navigation and filters for content type, upload date, duration, popularity, resolution and captions.
@@ -13,7 +16,7 @@ Cue is a locally hosted YouTube companion for browsing subscriptions, discoverin
 - **Live broadcasts:** Watch with synchronised audio, adaptive or manual quality selection, a Go live control and the same player controls used for regular videos.
 - **Live chat:** View YouTube chat beside the stream, hide it when needed or open it in a separate window.
 - **Personalisation:** Use local profiles, themes, watch history, saved videos and optional extensions, including video insights and local AI captions.
-- **Channel Shorts:** Browse Shorts from followed channels and filter videos by watched or unwatched status.
+- **Shorts:** Scroll a continuous vertical feed of Shorts from followed channels, with comments, replies and quick actions beside the video. Filter videos by watched or unwatched status.
 
 ## Feature tour
 
