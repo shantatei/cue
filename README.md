@@ -15,6 +15,34 @@ Cue is a locally hosted YouTube companion for browsing subscriptions, discoverin
 - **Personalisation:** Use local profiles, themes, watch history, saved videos and optional extensions, including video insights and local AI captions.
 - **Channel Shorts:** Browse Shorts from followed channels and filter videos by watched or unwatched status.
 
+## Feature tour
+
+Annotated screenshots highlight the controls behind each feature. Click an image to view it at full resolution.
+
+**Discovery and subscriptions**
+
+![Cue home feed with callouts for topic filters, channel search and the local library](docs/screenshots/01-home.png)
+
+**Search and filtering**
+
+![Cue search results with callouts for detailed filters, resolution and caption options, and content formats](docs/screenshots/02-search.png)
+
+**Video playback**
+
+![Cue video player with callouts for quality selection, viewing controls and chapter navigation](docs/screenshots/03-playback.png)
+
+**Shorts and comments**
+
+![Cue vertical Shorts feed with callouts for scrolling, the comments panel and quick actions](docs/screenshots/04-shorts.png)
+
+**Live broadcasts and chat**
+
+![Cue live player with callouts for live controls, adaptive or manual quality, and YouTube chat](docs/screenshots/05-live.png)
+
+**Optional extensions**
+
+![Cue extensions with callouts for video insights, local AI captions and adding trusted extensions](docs/screenshots/06-extensions.png)
+
 ## Getting started
 
 The current setup supports macOS with Homebrew. Install Node.js 24 or later, Python 3, `yt-dlp` and FFmpeg, then run the following commands from the project directory:
