@@ -1,0 +1,35 @@
+FROM node:24-bookworm-slim AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# Public image: static browser bundle and the read-only gateway, with no resolver or cookie tools.
+FROM node:24-bookworm-slim AS web
+WORKDIR /app
+ENV NODE_ENV=production CUE_WEB_BIND=0.0.0.0 CUE_WEB_PORT=8080
+COPY --from=build /app/dist/public ./dist/public
+COPY --from=build /app/dist/server/hosted ./dist/server/hosted
+COPY --from=build /app/dist/server/hosted-main.js ./dist/server/hosted-main.js
+COPY package.json ./
+RUN rm -f dist/public/app/fixture.json && find dist -name '*.map' -delete
+USER node
+EXPOSE 8080
+CMD ["node", "dist/server/hosted-main.js"]
+
+# Private image: only reachable through the container network; never publish its port.
+FROM node:24-bookworm-slim AS worker
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv ffmpeg ca-certificates \
+    && python3 -m venv /opt/ytdlp && /opt/ytdlp/bin/pip install --no-cache-dir 'yt-dlp[default]' \
+    && rm -rf /var/lib/apt/lists/*
+ENV PATH="/opt/ytdlp/bin:$PATH" NODE_ENV=production CUE_MODE=worker PORT=3001 CUE_WORKER_BIND=0.0.0.0 CUE_DATA_DIR=/var/lib/cue-worker
+COPY --from=build /app/dist/server.js ./dist/server.js
+COPY --from=build /app/dist/server ./dist/server
+COPY --from=build /app/dist/public ./dist/public
+COPY package.json ./
+RUN mkdir -p /var/lib/cue-worker && chown node:node /var/lib/cue-worker && find dist -name '*.map' -delete
+USER node
+EXPOSE 3001
+CMD ["node", "dist/server.js"]

@@ -2,9 +2,11 @@
 
 <img src="public/brand/cue-wordmark.svg" width="228" alt="Cue — the amber playback loop forms the C">
 
-Cue is a locally hosted YouTube companion for browsing subscriptions, discovering videos and watching live broadcasts. It brings organised channel navigation, continuous recommendations and a consistent player interface into one personal workspace.
+Cue is a YouTube companion for discovering videos and watching live broadcasts. Local mode adds organised subscriptions, signed-in recommendations and personal account features; the hosted guest version supports public browsing and playback without signing in.
 
-> **Personal use only.** Cue is an independent hobby project. It is not affiliated with, endorsed by or sponsored by YouTube or Google, and it is intended for personal use on your own machine.
+> **Hosted development branch:** `hosted/public-cue` adds anonymous public browsing and playback through a separate private worker. The local version remains on `main`. See [Hosting Cue](docs/hosting.md) for the split, guest feature limits and deployment steps. No service is deployed automatically.
+
+> Cue is an independent hobby project, not affiliated with, endorsed by or sponsored by YouTube or Google. Local mode is for personal use on your own machine; hosted guest mode is an experimental deployment foundation.
 
 ## Features
 
@@ -124,4 +126,4 @@ Live playback uses [hls.js](https://github.com/video-dev/hls.js), licensed under
 - Embedded live chat depends on YouTube, browser sign-in and channel restrictions. YouTube does not support embedded chat on mobile web.
 - Browsers using native HLS without MediaSource support select live playback quality automatically.
 - The browser account export and local speech setup are tailored to macOS.
-- Cue is intended for local use. The server has not been designed or hardened for public hosting.
+- The local server must stay private. Hosted mode has separate configuration and controls; read [Hosting Cue](docs/hosting.md) before deploying it. Public hosting still needs verification on the target network, edge controls, bandwidth budgets and monitoring.

@@ -1,4 +1,5 @@
 import { errorMessage } from "./errors.js";
+import { hosted } from "./runtime.js";
 import type { Subscription, Video } from "./types.js";
 import * as C from "./common.js";
 import { buildTopics, matchesTopic } from "./topics.js";
@@ -49,7 +50,12 @@ function setBanner(html: string) {
   if (!html) return;
   $(".top").after(Object.assign(document.createElement("div"), { className: "banner", role: "status", innerHTML: html }));
 }
-if (data.account?.needsReconnect || data.account?.error) {
+if (hosted) {
+  $(".subs").hidden = true;
+  document.querySelector<HTMLElement>('[data-nav="subs"]')?.remove();
+  document.querySelector<HTMLElement>('[data-nav="you:downloads"]')?.remove();
+  setBanner(`${data.account?.error ? esc(data.account.error) + " " : ""}Guest mode · Browse and watch without signing in. Your library and settings stay in this browser.`);
+} else if (data.account?.needsReconnect || data.account?.error) {
   setBanner(data.account.needsReconnect
     ? `YouTube no longer accepts the saved login, so you're seeing sample data. <a href="#/settings">Reconnect in Settings</a>`
     : `Couldn't read your YouTube account (${esc(data.account.error)}), so you're seeing sample data. <a href="#/settings">Check Settings</a>`);

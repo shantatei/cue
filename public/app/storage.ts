@@ -1,11 +1,13 @@
 import type { Profile } from "./types.js";
+import { hosted } from "./runtime.js";
 // Everything the app remembers is keyed by the active profile, so switching profiles swaps
 // history, likes, pins, settings and extensions together. Profiles themselves are global.
 // Stored data is untrusted: anything with the wrong shape is ignored in favour of the default,
 // and a failed write (quota, private mode) never throws.
 import { toast } from "./util.js";
 
-const GLOBAL = "own.profiles";
+const PREFIX = hosted ? "guest." : "own.";
+const GLOBAL = `${PREFIX}profiles`;
 const COLORS = ["#ffb020", "#4cc9f0", "#ff6b81", "#7bd88f", "#b79cff", "#ff9f6b"];
 
 const readJSON = <T>(key: string, fallback: T): T => { try { return JSON.parse(localStorage.getItem(key) ?? "null") ?? fallback; } catch { return fallback; } };
@@ -32,7 +34,7 @@ function loadProfiles() {
       .map((p) => ({ id: String(p.id), name: String(p.name), color: typeof p.color === "string" ? p.color : COLORS[0] }))
     : [];
   if (!profiles.length) {
-    const first = { profiles: [{ id: "k", name: "K", color: COLORS[0] }], current: "k" };
+    const first = { profiles: [{ id: "k", name: hosted ? "Guest" : "K", color: COLORS[0] }], current: "k" };
     write(GLOBAL, first);
     return first;
   }
@@ -58,13 +60,13 @@ export const profiles = {
     g.profiles = g.profiles.filter((p) => p.id !== id);
     if (g.current === id) g.current = g.profiles[0].id;
     save(g);
-    for (const k of Object.keys(localStorage)) if (k.startsWith(`own.${id}.`)) localStorage.removeItem(k);
+    for (const k of Object.keys(localStorage)) if (k.startsWith(`${PREFIX}${id}.`)) localStorage.removeItem(k);
     return true;
   },
   colors: COLORS,
 };
 
-const key = (name: string) => `own.${profiles.current().id}.${name}`;
+const key = (name: string) => `${PREFIX}${profiles.current().id}.${name}`;
 export const store = {
   /** Reads a value; `valid` rejects stored data of the wrong shape. */
   get<T>(name: string, fallback: T, valid?: (value: unknown) => boolean): T { const v = readJSON(key(name), fallback); return valid && !valid(v) ? fallback : v; },
@@ -76,7 +78,7 @@ export const store = {
 };
 
 // One-time move of the prototype's unscoped data into the first profile.
-for (const [from, to] of [["proto.lib", "own.k.lib"], ["proto.pins", "own.k.pins"]]) {
+for (const [from, to] of hosted ? [] : [["proto.lib", "own.k.lib"], ["proto.pins", "own.k.pins"]]) {
   const old = localStorage.getItem(from);
   if (old == null) continue;
   if (localStorage.getItem(to) == null) write(to, old);

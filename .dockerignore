@@ -1,0 +1,15 @@
+.git
+node_modules
+dist
+data
+hosted-data
+artifacts
+branding
+.env
+.env.*
+cookies*.txt
+*.pem
+*.key
+*.log
+**/__pycache__
+.DS_Store

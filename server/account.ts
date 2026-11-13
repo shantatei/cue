@@ -16,8 +16,9 @@ import { execFile, spawn } from "node:child_process";
 import { chmod, copyFile, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createRecommendationPager, startRecommendationWorker } from "./recommendations.js";
 
-import { ROOT } from "./paths.js";
-const ACCOUNTS = process.env.OWN_ACCOUNTS_DIR ? `${process.env.OWN_ACCOUNTS_DIR.replace(/\/?$/, "/")}` : `${ROOT}data/accounts/`;
+import { ROOT, DATA } from "./paths.js";
+const ACCOUNTS = process.env.CUE_MODE === "worker" ? `${DATA}accounts/`
+  : process.env.OWN_ACCOUNTS_DIR ? `${process.env.OWN_ACCOUNTS_DIR.replace(/\/?$/, "/")}` : `${DATA}accounts/`;
 const BROWSERS = ["chrome", "brave", "edge", "firefox", "safari", "vivaldi", "opera", "chromium"];
 const LOGIN_FAILED = /Login details are needed|Sign in to confirm|sign in to|cookies? .*(invalid|expired|no longer valid)|account cookies/i;
 const MIN = 60 * 1000;

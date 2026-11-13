@@ -1,6 +1,7 @@
 // A small persistent cache in IndexedDB. It holds the signed-in lists (subscriptions, feed, history…)
 // so the next visit can draw from it immediately and refresh in the background. Keys are per profile.
-const DB = "own-cache", STORE = "kv";
+import { hosted } from "./runtime.js";
+const DB = hosted ? "guest-cache" : "own-cache", STORE = "kv";
 let opening: Promise<IDBDatabase | null> | undefined;
 const open = () => (opening ??= new Promise<IDBDatabase | null>((resolve) => {
   try {

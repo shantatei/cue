@@ -1,4 +1,5 @@
 import { errorMessage } from "./errors.js";
+import { hosted } from "./runtime.js";
 import type { Extension, ExtensionAPI, ExtensionContext, SettingValue, PlayerAPI, CaptionRequest } from "./types.js";
 // Extension host. An extension is an ES module whose default export describes what it adds:
 //
@@ -16,7 +17,7 @@ import { esc, compact, fmtTime, ago, toast } from "./util.js";
 import insights from "./extensions/insights.js";
 import aiCaptions from "./extensions/ai-captions.js";
 
-const builtins = [insights, aiCaptions];
+const builtins = hosted ? [insights] : [insights, aiCaptions];
 let installed: Extension[] = []; // user-added, loaded from their URLs
 const listeners = new Set<() => void>();
 const errors = new Map<string, string>();
@@ -36,6 +37,7 @@ export const extensions = {
   active: (): Extension[] => extensions.all().filter((e) => !e.broken && extensions.isEnabled(e.id)),
 
   async add(url: unknown) {
+    if (hosted) throw new Error("Custom extensions are only available in local Cue.");
     url = String(url ?? "").trim();
     if (!url) throw new Error("Enter the address of an extension module.");
     const u = new URL(String(url), location.href);
@@ -97,7 +99,7 @@ function apiFor(ext: Extension): ExtensionAPI {
 
 // Load previously added extensions. One that no longer loads (offline URL, bad module) stays in the
 // list as a broken entry, so the user can see why and remove it.
-await Promise.all(store.get<string[]>("ext.installed", [], is.strings).map(async (url) => {
+await Promise.all((hosted ? [] : store.get<string[]>("ext.installed", [], is.strings)).map(async (url) => {
   try {
     const ext = (await import(/* @vite-ignore */ url)).default as Extension;
     if (!ext?.id || !ext?.name) throw new Error("it doesn't export an extension");

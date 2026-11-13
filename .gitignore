@@ -3,6 +3,8 @@ data/
 cookies*.txt
 .env
 .env.*
+!.env.hosted.example
+/hosted-data/
 *.pem
 *.key
 

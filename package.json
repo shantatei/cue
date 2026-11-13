@@ -9,7 +9,9 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run build && npm run test:unit",
     "test:unit": "node --enable-source-maps --test dist/tests/*.test.js && python3 -m unittest discover -s tests -p '*_test.py'",
-    "fixtures": "tsx scripts/build-fixture.ts"
+    "fixtures": "tsx scripts/build-fixture.ts",
+    "start:web": "node --enable-source-maps dist/server/hosted-main.js",
+    "start:worker": "CUE_MODE=worker node --enable-source-maps dist/server.js"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

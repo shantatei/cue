@@ -1,4 +1,5 @@
 import { asError, errorMessage, isAbortError } from "./errors.js";
+import { hosted } from "./runtime.js";
 import type { DownloadOption, AppData, AccountRaw, AccountStatus, Fixture, Video, VideoInfo, VideoComment, Subscription, CaptionTrack, CaptionRequest, CaptionOptions, PlayerAPI, PageElement, Channel } from "./types.js";
 // Shared logic for the three design drafts: data, formatting, routing and the pages every
 // draft needs (watch, search, channel, library, shorts, manage). Drafts own the shell,
@@ -69,6 +70,15 @@ async function loadAccountData(pid: string, account: AccountStatus): Promise<App
 }
 
 export async function loadData(): Promise<AppData> {
+  if (hosted) {
+    const data: AppData = { groups: [], subs: [], videos: [], shorts: [], channels: new Map(), fresh: new Set() };
+    try {
+      const response = await fetch("/api/discover", { signal: AbortSignal.timeout(55_000) });
+      if (!response.ok) throw new Error("Public discovery is temporarily unavailable. You can still try searching.");
+      data.videos = await response.json();
+    } catch { data.account = { connected: false, error: "Public discovery is temporarily unavailable. You can still try searching." }; }
+    return data;
+  }
   const pid = profiles.current().id;
   const account: AccountStatus = await fetch(`/api/account?p=${encodeURIComponent(pid)}`).then((r) => (r.ok ? r.json() : { connected: false })).catch(() => ({ connected: false }));
   let failure = null;
@@ -321,6 +331,19 @@ export async function renderShorts(main: PageElement, data: AppData, startId = "
     commentsHtml,
     openChannel: (v: Video) => (v.channelId ? `#/channel/${v.channelId}` : `#/search/${encodeURIComponent(v.channel ?? "")}`),
   };
+  if (hosted) {
+    const token = main.dataset.shorts = crypto.randomUUID();
+    main.innerHTML = `<section class="page"><h1 class="ph">Shorts</h1><p role="status">Loading public Shorts…</p></section>`;
+    try {
+      const response = await fetch("/api/shorts", { signal: AbortSignal.timeout(55_000) });
+      if (!response.ok) throw new Error("Public Shorts are temporarily unavailable. Try searching for a Short instead.");
+      const list: Video[] = await response.json();
+      if (main.dataset.shorts === token) mountReels(main, list, startId, deps);
+    } catch (error) {
+      if (main.dataset.shorts === token) main.innerHTML = empty("Couldn't load Shorts", esc(errorMessage(error)));
+    }
+    return;
+  }
   if (data.live) {
     // Signed in: Shorts from the channels you follow. The last list this device saw is drawn first.
     const key = `shorts:${pid}`;
@@ -354,6 +377,10 @@ const LIBS: Record<string, [string, string]> = {
 };
 const LIB_FEEDS: Record<string, string> = { history: "history", later: "later", liked: "liked" };
 export async function renderLib(main: PageElement, name: string, data: AppData) {
+  if (hosted && ["playlists", "mine", "downloads", "channel"].includes(name)) {
+    main.innerHTML = empty("Available in local Cue", "Guest Cue supports public playback and a library saved in this browser. YouTube account features and downloads are available in the local version.");
+    return;
+  }
   const [title, hint] = LIBS[name] ?? ["Library", ""];
   const local = ["history", "later", "liked"].includes(name) ? lib.list(name) : null;
   const connected = data?.live && LIB_FEEDS[name];

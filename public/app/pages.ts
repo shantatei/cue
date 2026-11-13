@@ -1,4 +1,5 @@
 import { errorMessage } from "./errors.js";
+import { hosted } from "./runtime.js";
 import type { PageElement, AppData, SettingValue } from "./types.js";
 // Settings, Extensions and the account menu.
 import { icon } from "../icons.js";
@@ -45,10 +46,10 @@ export function renderSettings(main: PageElement) {
       + select("playback.rate", s.playback.rate, "Default speed", rates))}
     ${section("Captions",
       select("captions.show", s.captions.show, "Show captions", [["off", "Only when I turn them on"], ["on", "On by default"]], "Press C in the player to toggle them.")
-      + select("captions.language", s.captions.language, "Language", [["original", "The language spoken"], ["en", "English when available"]], "English uses an uploaded English track, or an AI translation if the AI captions extension is on.")
+      + select("captions.language", s.captions.language, "Language", [["original", "The language spoken"], ["en", "English when available"]], hosted ? "English uses an uploaded English caption track when available." : "English uses an uploaded English track, or an AI translation if the AI captions extension is on.")
       + range("captions.size", s.captions.size, "Text size", 70, 200, 10)
       + range("captions.background", s.captions.background, "Background darkness", 0, 100, 10)
-      + `<p class="set-note">${icon("puzzle", 16)} Captions for videos that have none come from the <a href="#/extensions">AI captions extension</a>.</p>`)}
+      + `<p class="set-note">${hosted ? "Guest Cue uses captions provided by YouTube. AI transcription is available in local Cue." : `${icon("puzzle", 16)} Captions for videos that have none come from the <a href="#/extensions">AI captions extension</a>.`}</p>`)}
     ${section("YouTube account", `<div id="yt"></div>`)}
     ${section("Profiles", `<div id="acct"></div>`)}
     ${section("Data on this device", `
@@ -58,6 +59,7 @@ export function renderSettings(main: PageElement) {
       <div class="set-row"><div><label>Reset settings</label><p>Puts every setting on this page back to its default. Extensions stay as they are.</p></div><button class="btn" data-clear="settings">Reset</button></div>`)}
   </section>`;
   const root = main.firstElementChild as HTMLElement;
+  if (hosted) root.querySelector('[data-clear="captions"]')?.closest(".set-row")?.remove();
   wireSettings(root, (path, value) => settings.set(path, value));
   drawAccounts();
   drawYouTube(root);
@@ -100,6 +102,10 @@ export async function signOutYouTube() {
 /** Connect, reconnect and disconnect the current profile's YouTube account. */
 async function drawYouTube(root: HTMLElement) {
   const el = $("#yt", root), pid = profiles.current().id;
+  if (hosted) {
+    el.innerHTML = `<div class="set-row"><div><label>No sign-in needed</label><p>Guest Cue plays public videos. Connecting a YouTube account or importing browser cookies is only available in the local version.</p></div></div>`;
+    return;
+  }
   el.innerHTML = `<div class="set-row"><p>Checking…</p></div>`;
   const st = await fetch(`/api/account?p=${encodeURIComponent(pid)}`).then((r) => r.json()).catch(() => ({ connected: false }));
   const since = st.since ? new Date(st.since * 1000).toLocaleDateString("en", { year: "numeric", month: "short", day: "numeric" }) : "";
@@ -178,9 +184,9 @@ export function renderExtensions(main: PageElement) {
       <section class="ext-add"><h2>Add an extension</h2><p>Paste the address of an extension module. An example is included: <button class="linkish" data-example>/extensions/examples/watch-notes.js</button></p>
         <form class="ext-form"><input name="url" type="text" inputmode="url" required placeholder="https://… or /extensions/…" aria-label="Extension address"><button class="btn btn-pri">Add</button></form>
         <p class="warn">${icon("help", 16)} An extension is code that runs inside this app with full access to everything in it, including this profile's saved data. Only add ones you trust. New extensions start off.</p></section></section>`;
+    if (hosted) root.querySelector(".ext-add")?.remove();
     const input = $(".ext-form input", root);   // a re-render (from toggling something) must not eat what was typed
-    input.value = typed;
-    if (hadFocus) input.focus();
+    if (input) { input.value = typed; if (hadFocus) input.focus(); }
   };
   draw();
   root.addEventListener("click", (e) => {

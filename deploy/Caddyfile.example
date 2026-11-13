@@ -1,0 +1,5 @@
+# Replace cue.example.com with the domain you control, pointed at your server.
+cue.example.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8080
+}

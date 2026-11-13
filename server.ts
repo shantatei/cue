@@ -15,6 +15,10 @@ import { searchSuggestions, createChannelAvatars } from "./server/discovery.js";
 import { youtubeSearchURL, searchShorts } from "./server/search.js";
 import { liveManifestURL, createLiveProxy } from "./server/live.js";
 import { downloadOptions, createDownloads } from "./server/download.js";
+import { workerConfig, matchesSecret, WORKER_ROUTES } from "./server/hosted/config.js";
+import { ROOT } from "./server/paths.js";
+
+const worker = workerConfig(process.env, ROOT);
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC = fileURLToPath(new URL("./public/", import.meta.url));
@@ -34,11 +38,16 @@ const TYPES: Record<string, string> = {
   ".png": "image/png", ".webp": "image/webp", ".jpg": "image/jpeg", ".woff2": "font/woff2",
 };
 
+let extractions = 0;
 function ytdlp(args: string[]): Promise<string> {
+  if (worker && extractions >= 4) return Promise.reject(new Error("Playback worker is busy. Try again shortly."));
+  extractions++;
   return new Promise<string>((resolve, reject) => {
-    execFile("yt-dlp", args, { maxBuffer: 256 * 1024 * 1024 }, (err, out, errOut) =>
-      err ? reject(new Error(errOut || errorMessage(err))) : resolve(out),
-    );
+    const isolated = worker ? ["--ignore-config", "--no-plugin-dirs", "--js-runtimes", `node:${process.execPath}`, "--cache-dir", `${DATA}yt-dlp`, ...args] : args;
+    execFile("yt-dlp", isolated, { maxBuffer: (worker ? 16 : 256) * 1024 * 1024, ...(worker ? { timeout: 45_000 } : {}) }, (err, out, errOut) => {
+      extractions--;
+      err ? reject(new Error(errOut || errorMessage(err))) : resolve(out);
+    });
   });
 }
 
@@ -57,6 +66,7 @@ function cached<T>(key: string, ttl: number, load: () => Promise<T>): Promise<T>
   if (hit && Date.now() - hit.at < ttl) return hit.promise as Promise<T>;
   const promise = load();
   cache.set(key, { at: Date.now(), promise });
+  if (worker && cache.size > 128) cache.delete(cache.keys().next().value!);
   promise.catch(() => cache.delete(key));
   return promise;
 }
@@ -193,7 +203,7 @@ function getInfo(id: string, profile?: string | null): Promise<{ urls: Record<st
     try { raw = await ytdlp(args); }
     catch (e) {
       // Only a video that needs a login uses the account; everything else plays without it.
-      if (!profile || !NEEDS_LOGIN.test(errorMessage(e)) || !(await account.status(profile)).connected) throw e;
+      if (worker || !profile || !NEEDS_LOGIN.test(errorMessage(e)) || !(await account.status(profile)).connected) throw e;
       raw = await account.auth(profile, args); usedLogin = true;
     }
     const j = parseYtJSON(raw);
@@ -269,9 +279,24 @@ function comments(id: string) {
 const IMG_HOSTS = new Set(["yt3.googleusercontent.com", "yt3.ggpht.com", "i.ytimg.com", "i9.ytimg.com"]);
 function image(url: string) {
   return cached(`img:${url}`, 24 * 60 * 60 * 1000, async () => {
-    const r = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    let target = new URL(url), r: Response | undefined;
+    for (let redirects = 0; redirects < 4; redirects++) {
+      if (worker && (target.protocol !== "https:" || !IMG_HOSTS.has(target.hostname))) throw new Error("Image host not allowed.");
+      r = await fetch(target, { signal: AbortSignal.timeout(10_000), redirect: worker ? "manual" : "follow" });
+      if (worker && [301, 302, 303, 307, 308].includes(r.status)) {
+        await r.body?.cancel(); target = new URL(r.headers.get("location") ?? "", target); continue;
+      }
+      break;
+    }
+    if (!r) throw new Error("Image unavailable.");
     if (!r.ok) throw new Error(`image ${r.status}`);
-    return { type: r.headers.get("content-type") ?? "image/jpeg", body: Buffer.from(await r.arrayBuffer()) };
+    const chunks: Buffer[] = []; let bytes = 0;
+    if (r.body) for await (const chunk of r.body) {
+      bytes += chunk.length;
+      if (worker && bytes > 2 * 1024 * 1024) throw new Error("Image is too large.");
+      chunks.push(Buffer.from(chunk));
+    }
+    return { type: r.headers.get("content-type") ?? "image/jpeg", body: Buffer.concat(chunks) };
   });
 }
 
@@ -432,20 +457,25 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: 
 }
 
 http.createServer(async (req, res) => {
+  if (worker && !matchesSecret(worker.secret, req.headers["x-cue-worker-secret"])) return json(res, 401, { error: "Worker authentication required." });
+  if (worker) res.setHeader("x-cue-worker-version", "1");
   // Every request must name this server as its Host (stops DNS-rebinding pages from talking to it), and
   // anything that isn't a plain page load must come from this app's own pages (stops other sites from
   // triggering downloads, transcription jobs or cache deletion in the background).
   if (!HOSTS.has(req.headers.host ?? "")) return json(res, 403, { error: "Unrecognised host." });
   const pathname = req.url?.split("?")[0] ?? "/";
+  if (worker && (req.method !== "GET" || !WORKER_ROUTES.has(pathname))) return json(res, 404, { error: "Not available on the playback worker." });
   if ((req.method !== "GET" || pathname.startsWith("/api/") || pathname === "/stream") && !sameOrigin(req)) return json(res, 403, { error: "This server only answers to its own pages." });
   const u = new URL(req.url ?? "/", `http://${req.headers.host}`);
   const id = u.searchParams.get("v") ?? "";
   try {
     switch (u.pathname) {
+      case "/healthz": return json(res, 200, { ok: true });
       case "/api/info": {
         if (!ID_RE.test(id)) return json(res, 400, { error: "bad video id" });
         const p = u.searchParams.get("p");
-        return json(res, 200, (await getInfo(id, PROFILE_RE.test(p ?? "") ? p : null)).pub);
+        const info = (await getInfo(id, worker ? null : PROFILE_RE.test(p ?? "") ? p : null)).pub;
+        return json(res, 200, worker ? { ...info, downloads: [] } : info);
       }
       case "/api/live": {
         if (!sameOrigin(req)) return json(res, 403, { error: "Live media only answers to this app." });
@@ -594,4 +624,4 @@ http.createServer(async (req, res) => {
     if (!res.headersSent) json(res, 500, { error: message });
     else res.destroy();
   }
-}).listen(PORT, "127.0.0.1", () => { console.log(`http://localhost:${PORT}`); account.warm(); });
+}).listen(PORT, worker?.bind ?? "127.0.0.1", () => { console.log(`Cue ${worker ? "private worker" : "local"} listening on port ${PORT}`); if (!worker) account.warm(); });

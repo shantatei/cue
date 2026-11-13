@@ -1,0 +1,45 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.hosted
+      target: web
+    environment:
+      CUE_PUBLIC_ORIGIN: ${CUE_PUBLIC_ORIGIN:-http://localhost:8080}
+      CUE_WORKER_URL: http://worker:3001
+      CUE_WORKER_SECRET: ${CUE_WORKER_SECRET:?Set a random CUE_WORKER_SECRET of at least 32 characters}
+      CUE_TRUST_PROXY: ${CUE_TRUST_PROXY:-0}
+      CUE_MAX_HEAVY: ${CUE_MAX_HEAVY:-4}
+      CUE_MAX_MEDIA: ${CUE_MAX_MEDIA:-32}
+      CUE_REQUESTS_PER_MINUTE: ${CUE_REQUESTS_PER_MINUTE:-120}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      - worker
+    init: true
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 256m
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.hosted
+      target: worker
+    environment:
+      CUE_WORKER_SECRET: ${CUE_WORKER_SECRET:?Set CUE_WORKER_SECRET}
+    volumes:
+      - worker-data:/var/lib/cue-worker
+    init: true
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 1g
+volumes:
+  worker-data:
