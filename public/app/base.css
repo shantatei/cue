@@ -147,3 +147,13 @@ img { display: block; }
 .cm-replies .faces .av { width: 22px; height: 22px; box-shadow: 0 0 0 2px var(--panel); } .cm-replies .faces .av + .av { margin-left: -6px; }
 .cm-thread { display: grid; gap: 14px; margin-top: 10px; }
 @media (prefers-reduced-motion: reduce) { .cm-replies > summary svg { transition: none; } }
+
+/* Download menu and progress on the button. */
+.dl-pop { width: min(340px, calc(100vw - 16px)); }
+.dl-opt { display: grid !important; gap: 2px; text-align: left; width: 100%; }
+.dl-opt .dl-main { display: flex; align-items: center; gap: 8px; }
+.dl-opt small { color: var(--fg-2); }
+.dl-note { margin: 8px 10px 4px; font-size: 12px; color: var(--fg-3); line-height: 1.4; }
+.btn-dl[data-busy] { background: linear-gradient(to right, color-mix(in srgb, var(--accent) 35%, transparent) var(--dl, 0%), transparent var(--dl, 0%)), var(--panel-2); pointer-events: none; font-variant-numeric: tabular-nums; }
+.btn-dl-cancel { gap: 6px; color: var(--fg-2); }
+.btn-dl-cancel:hover { color: var(--fg); }

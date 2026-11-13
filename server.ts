@@ -14,6 +14,7 @@ import { createAccount, PROFILE_RE } from "./server/account.js";
 import { searchSuggestions, createChannelAvatars } from "./server/discovery.js";
 import { youtubeSearchURL, searchShorts } from "./server/search.js";
 import { liveManifestURL, createLiveProxy } from "./server/live.js";
+import { downloadOptions, createDownloads } from "./server/download.js";
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC = fileURLToPath(new URL("./public/", import.meta.url));
@@ -42,6 +43,11 @@ function ytdlp(args: string[]): Promise<string> {
 }
 
 const account = createAccount({ ytdlp });
+const downloads = createDownloads({
+  tmp: `${DATA}tmp/`,
+  cookies: (profile, dest) => account.cookieCopy(profile, dest),
+  audioBytes: async (id) => (await getInfo(id)).pub.downloads?.find((o) => o.id === "audio")?.size ?? null,
+});
 const channelAvatar = createChannelAvatars();
 
 // key -> { at, promise }; caching the promise also dedupes concurrent lookups
@@ -180,15 +186,15 @@ async function youtubeCaptions(id: string, cid: string) {
 }
 
 const NEEDS_LOGIN = /sign in to confirm your age|age-restricted|members-only|join this channel|private video|this video is private|sign in to confirm you/i;
-function getInfo(id: string, profile?: string | null): Promise<{ urls: Record<string, { url: string; at: number }>; pub: VideoInfo; captionUrls: Record<string, string>; liveManifest?: string }> {
+function getInfo(id: string, profile?: string | null): Promise<{ urls: Record<string, { url: string; at: number }>; pub: VideoInfo; captionUrls: Record<string, string>; liveManifest?: string; usedLogin: boolean }> {
   return cached(`info:${id}`, TTL, async () => {
     const args = ["-J", "--no-playlist", `https://www.youtube.com/watch?v=${id}`];
-    let raw;
+    let raw, usedLogin = false;
     try { raw = await ytdlp(args); }
     catch (e) {
       // Only a video that needs a login uses the account; everything else plays without it.
       if (!profile || !NEEDS_LOGIN.test(errorMessage(e)) || !(await account.status(profile)).connected) throw e;
-      raw = await account.auth(profile, args);
+      raw = await account.auth(profile, args); usedLogin = true;
     }
     const j = parseYtJSON(raw);
     const { urls, ...formats } = pickFormats(j);
@@ -201,7 +207,7 @@ function getInfo(id: string, profile?: string | null): Promise<{ urls: Record<st
     }
     return {
       urls,
-      liveManifest,
+      liveManifest, usedLogin,
       pub: {
         live: live && !!liveManifest,
         id, title: j.title ?? "", description: j.description, duration: j.duration ?? 0,
@@ -211,7 +217,7 @@ function getInfo(id: string, profile?: string | null): Promise<{ urls: Record<st
         timestamp: j.timestamp, tags: j.tags ?? [], categories: j.categories ?? [],
         chapters: j.chapters ?? [], heatmap: j.heatmap ?? [], thumbnail: j.thumbnail,
         language: j.language ?? null, captions: captions.list,
-        ...formats,
+        ...formats, downloads: downloadOptions(j.formats ?? [], j.duration ?? 0),
       },
       captionUrls: captions.urls,
     };
@@ -453,6 +459,37 @@ http.createServer(async (req, res) => {
           if (res.headersSent) res.destroy(); else json(res, errorStatus(error) ?? 502, { error: errorMessage(error) });
           return;
         }
+      }
+      case "/api/download": {
+        if (req.method !== "POST") return json(res, 405, { error: "POST only" });
+        if (!ID_RE.test(id)) return json(res, 400, { error: "bad video id" });
+        const option = u.searchParams.get("q") ?? "", p = u.searchParams.get("p");
+        const profile = PROFILE_RE.test(p ?? "") ? p : null;
+        const info = await getInfo(id, profile);
+        if (!info.pub.downloads?.some((o) => o.id === option)) return json(res, 400, { error: "That quality isn't available for this video." });
+        try { return json(res, 202, { job: await downloads.start(id, option, info.pub.title, info.usedLogin ? profile : null) }); }
+        catch (error) { return json(res, errorStatus(error) ?? 500, { error: errorMessage(error) }); }
+      }
+      case "/api/download/status": {
+        const state = downloads.status(u.searchParams.get("job") ?? "");
+        return state ? json(res, 200, state) : json(res, 404, { error: "That download is no longer available." });
+      }
+      case "/api/download/cancel": {
+        if (req.method !== "POST") return json(res, 405, { error: "POST only" });
+        return json(res, 200, { cancelled: await downloads.cancel(u.searchParams.get("job") ?? "") });
+      }
+      case "/api/download/file": {
+        const jobId = u.searchParams.get("job") ?? "", f = downloads.file(jobId);
+        if (!f) return json(res, 404, { error: "That download isn't ready or has expired." });
+        res.writeHead(200, {
+          "content-type": "application/octet-stream", "content-length": f.size,
+          "content-disposition": `attachment; filename="${f.name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "'")}"; filename*=UTF-8''${encodeURIComponent(f.name)}`,
+        });
+        const { createReadStream } = await import("node:fs");
+        const stream = createReadStream(f.path);
+        res.on("close", () => stream.destroy());
+        stream.on("end", () => setTimeout(() => void downloads.discard(jobId), 60_000).unref());
+        return void stream.pipe(res);
       }
       case "/api/channel": {
         const cid = u.searchParams.get("id") ?? "";

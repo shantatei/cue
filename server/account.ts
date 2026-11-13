@@ -13,7 +13,7 @@ type CacheOptions = { fresh?: boolean };
 // the account's subscriptions, history, Watch later, Liked videos and recommendations.
 // Playback never uses it unless a video needs a login (age-restricted, members-only, private).
 import { execFile, spawn } from "node:child_process";
-import { chmod, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createRecommendationPager, startRecommendationWorker } from "./recommendations.js";
 
 import { ROOT } from "./paths.js";
@@ -207,5 +207,12 @@ export function createAccount({ ytdlp }: { ytdlp: Ytdlp }) {
     return out;
   }, opts);
 
-  return { status, connect, disconnect, auth, channels, feed, shorts, recommendations, forget, warm, BROWSERS };
+  /** A private copy of this profile's login cookies for one yt-dlp run, or null when it isn't connected. */
+  async function cookieCopy(p: string, dest: string): Promise<string | null> {
+    const src = `${dirOf(p)}cookies.txt`;
+    if (!(await stat(src).then(() => true, () => false))) return null;
+    await copyFile(src, dest); await chmod(dest, 0o600);
+    return dest;
+  }
+  return { status, connect, disconnect, auth, cookieCopy, channels, feed, shorts, recommendations, forget, warm, BROWSERS };
 }

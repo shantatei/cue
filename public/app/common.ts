@@ -1,5 +1,5 @@
 import { asError, errorMessage, isAbortError } from "./errors.js";
-import type { AppData, AccountRaw, AccountStatus, Fixture, Video, VideoInfo, VideoComment, Subscription, CaptionTrack, CaptionRequest, CaptionOptions, PlayerAPI, PageElement, Channel } from "./types.js";
+import type { DownloadOption, AppData, AccountRaw, AccountStatus, Fixture, Video, VideoInfo, VideoComment, Subscription, CaptionTrack, CaptionRequest, CaptionOptions, PlayerAPI, PageElement, Channel } from "./types.js";
 // Shared logic for the three design drafts: data, formatting, routing and the pages every
 // draft needs (watch, search, channel, library, shorts, manage). Drafts own the shell,
 // the home composition and all styling.
@@ -142,6 +142,57 @@ export function popover(anchor: HTMLElement, html: string, cls = "") {
   document.addEventListener("keydown", (e) => e.key === "Escape" && close(), { signal: off.signal });
   pop.addEventListener("click", (e) => targetOf(e).closest<HTMLElement>("a, [data-close], [data-toast]") && close());
   return pop;
+}
+
+const sizeLabel = (n: number | null) => (n == null ? "" : n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1e6))} MB`);
+/** Every quality the source offers, highest first; the top one is the original quality. */
+function downloadMenu(options: DownloadOption[]) {
+  return `<h3>Download</h3>${options.map((o, i) => `<button class="menuitem dl-opt" data-dl="${esc(o.id)}" data-close>
+    <span class="dl-main"><b>${esc(o.label)}</b>${i === 0 && o.id !== "audio" ? `<span class="badge">Highest quality</span>` : ""}</span>
+    <small>${esc(o.detail)}${o.size ? ` · up to ${sizeLabel(o.size)}` : ""}</small></button>`).join("")}
+    <p class="dl-note">Higher qualities are combined from separate video and audio files, so they take a moment to prepare.</p>`;
+}
+/** Starts a server-side download, shows its progress on the button, then hands the finished file to the browser. */
+async function download(button: HTMLElement, id: string, option: string, signal: AbortSignal) {
+  const label = $("span", button), idle = label.textContent ?? "Download";
+  if (button.dataset.busy) return toast("A download is already running here.");
+  button.dataset.busy = "1";
+  let job = "", cancelled = false;
+  const stop = Object.assign(document.createElement("button"), { type: "button", className: "btn btn-dl-cancel", innerHTML: `${icon("x", 16)} <span>Cancel</span>` });
+  stop.onclick = () => {
+    cancelled = true;
+    if (job) void fetch(`/api/download/cancel?job=${job}`, { method: "POST" });
+    toast("Download cancelled.");
+  };
+  button.after(stop);
+  const finish = () => { stop.remove(); delete button.dataset.busy; button.style.removeProperty("--dl"); label.textContent = idle; };
+  try {
+    label.textContent = "Starting…";
+    const r = await fetch(`/api/download?v=${id}&q=${encodeURIComponent(option)}&p=${encodeURIComponent(profiles.current().id)}`, { method: "POST", signal });
+    const started = await r.json();
+    if (!r.ok) throw new Error(started.error);
+    job = started.job;
+    if (cancelled) void fetch(`/api/download/cancel?job=${job}`, { method: "POST" });
+    while (!signal.aborted && !cancelled) {
+      await new Promise((ok) => setTimeout(ok, 600));
+      if (cancelled) break;
+      const res = await fetch(`/api/download/status?job=${job}`, { signal });
+      const s = await res.json();
+      if (cancelled) break;
+      if (s.error) throw new Error(s.error);
+      button.style.setProperty("--dl", `${Math.round(s.progress * 100)}%`);
+      label.textContent = s.state === "done" ? "Saving…" : `${s.stage} ${Math.round(s.progress * 100)}%`;
+      if (s.state === "done") {
+        const a = Object.assign(document.createElement("a"), { href: `/api/download/file?job=${job}`, download: s.name });
+        document.body.append(a); a.click(); a.remove();
+        toast(`Saved ${s.name} (${sizeLabel(s.size)}) to your downloads.`);
+        break;
+      }
+    }
+    // Leaving the page also stops the download instead of leaving it running unseen.
+    if (signal.aborted && !cancelled && job) { void fetch(`/api/download/cancel?job=${job}`, { method: "POST", keepalive: true }); toast("Download cancelled because you left the video."); }
+  } catch (e) { if (!isAbortError(e) && !cancelled) toast(`Download failed: ${errorMessage(e)}`); }
+  finish();
 }
 
 export function bellHtml(data: AppData) {
@@ -447,7 +498,7 @@ export async function renderWatch(main: PageElement, id: string, data: AppData) 
       <div class="w-acts"><span class="seg"><button class="${likes ? "on" : ""}" data-like aria-pressed="${likes}">${icon("like", 18)}<span>${compact((info.likes ?? 0) + (likes ? 1 : 0))}</span></button><button data-dislike aria-label="Dislike">${icon("dislike", 18)}</button></span>
         <button class="btn" data-share>${icon("share", 18)} Share</button>
         <button class="btn ${lib.has("later", id) ? "on" : ""}" data-later>${icon("clock", 18)} <span>${lib.has("later", id) ? "Saved" : "Watch later"}</span></button>
-        <a class="btn" href="/stream?v=${id}&f=18" download="${esc(info.title)}.mp4" ${info.muxed.some((f) => f.id === "18") ? "" : "hidden"}>${icon("download", 18)} Download</a></div></div>
+<button class="btn btn-dl" data-download ${info.downloads?.length ? "" : "hidden"}>${icon("download", 18)} <span>Download</span></button></div></div>
     <section class="w-desc"><p class="w-stats">${info.live ? `<b class="live-label">● LIVE NOW</b>` : `<b>${compact(info.views)} views</b> <b>${ago(info.timestamp)}</b>`}</p><div class="w-text clamp">${linkify(info.description || "No description.")}</div><button class="more" data-more>Show more</button></section>
     ${info.chapters.length ? `<section class="w-chap"><h2>Chapters</h2><ol>${info.chapters.map((c) => `<li><button class="ts" data-t="${c.start_time}"><span>${fmtTime(c.start_time)}</span>${esc(c.title)}</button></li>`).join("")}</ol></section>` : ""}
     ${panels.map((p) => `<div class="w-ext" data-ext="${p.id}">${p.html}</div>`).join("")}
@@ -484,6 +535,12 @@ export async function renderWatch(main: PageElement, id: string, data: AppData) 
     if (targetOf(e).closest<HTMLElement>("[data-dislike]")) return toast("Dislikes sync to YouTube once you sign in.");
     const later = targetOf(e).closest<HTMLElement>("[data-later]"); if (later) { if (data.live) savedLocally(); const on = lib.toggle("later", chip); later.classList.toggle("on", on); $("span", later).textContent = on ? "Saved" : "Watch later"; return; }
     if (targetOf(e).closest<HTMLElement>("[data-share]")) return copyText(`https://youtu.be/${id}`, "Link copied.");
+    const dl = targetOf(e).closest<HTMLElement>("[data-download]");
+    if (dl) {
+      const pop = popover(dl, downloadMenu(info.downloads ?? []), "dl-pop");
+      pop?.addEventListener("click", (ev) => { const o = targetOf(ev).closest<HTMLElement>("[data-dl]"); if (o) void download(dl, id, o.dataset.dl!, off.signal); });
+      return;
+    }
   }, { signal: off.signal });
 
   if (info.live) return;

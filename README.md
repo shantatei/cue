@@ -12,6 +12,8 @@ Cue is a locally hosted YouTube companion for browsing subscriptions, discoverin
 - **Organised subscriptions:** Search channels, pin favourites and collapse groups within a bounded sidebar.
 - **Continuous discovery:** Browse signed-in recommendations with automatic pagination, duplicate removal and topic filters based on video metadata.
 - **Search and filtering:** Get search suggestions as you type, with keyboard navigation and filters for content type, upload date, duration, popularity, resolution and captions.
+- **Downloads in any quality:** Choose from every quality the source offers, up to its highest (including 4K and 8K when available), or save audio only.
+- **Open YouTube links:** Paste a watch, Shorts, live or channel link into the search box to open it in Cue.
 - **Video playback:** Choose playback quality, enable captions, navigate chapters and resume videos with familiar keyboard controls.
 - **Live broadcasts:** Watch with synchronised audio, adaptive or manual quality selection, a Go live control and the same player controls used for regular videos.
 - **Live chat:** View YouTube chat beside the stream, hide it when needed or open it in a separate window.

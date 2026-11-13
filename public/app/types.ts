@@ -20,6 +20,7 @@ export interface Fixture {
   groups: Group[]; channels: Channel[]; videos: Video[]; shorts: Video[];
   subscriptions: { name: string; group: string; channelId?: string | null }[];
 }
+export interface DownloadOption { id: string; label: string; detail: string; size: number | null }
 export interface StreamFormat { id: string; mime: string; bitrate?: number }
 export interface VideoFormat extends StreamFormat { quality: number; width: number; height: number; fps: number; bitrate: number }
 export interface Chapter { start_time: number; end_time?: number; title: string }
@@ -28,7 +29,7 @@ export interface CaptionTrack { id: string; lang: string; name: string; kind: "m
 export interface VideoInfo extends Omit<Video, "title" | "channel" | "duration" | "tags" | "categories"> {
   title: string; channel: string; duration: number; handle?: string | null;
   verified: boolean; subscribers?: number | null; likes?: number | null; comments?: number | null;
-  video: VideoFormat[]; audio: StreamFormat[]; muxed: VideoFormat[];
+  video: VideoFormat[]; audio: StreamFormat[]; muxed: VideoFormat[]; downloads?: DownloadOption[];
   tags: string[]; categories: string[]; chapters: Chapter[]; heatmap: HeatmapPoint[];
   language?: string | null; captions: CaptionTrack[];
 }

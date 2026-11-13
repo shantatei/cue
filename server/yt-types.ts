@@ -4,7 +4,7 @@ export interface Thumbnail { url: string; width?: number; height?: number; id?: 
 export interface RawFormat {
   format_id: string; protocol?: string; url: string; manifest_url?: string; has_drm?: boolean; available_at?: number;
   ext?: string; vcodec?: string; acodec?: string; dynamic_range?: string; format_note?: string;
-  height?: number; width?: number; fps?: number; tbr?: number; abr?: number; language_preference?: number;
+  height?: number; width?: number; fps?: number; tbr?: number; abr?: number; language_preference?: number; filesize?: number; filesize_approx?: number;
 }
 export interface RawCaption { url: string; ext: string; name?: string }
 export interface RawComment {
